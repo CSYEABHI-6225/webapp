@@ -35,3 +35,13 @@ This is a simple Flask application that provides a health check endpoint to moni
    ```bash
    git clone <repository-url>
    cd <repository-directory>
+
+   install Python
+   pip install flask
+   python webapp
+
+## Dependencies
+    git
+    Python3
+    flask
+    SQLAlchemy
