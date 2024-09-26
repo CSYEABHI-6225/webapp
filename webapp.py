@@ -9,9 +9,10 @@ print(os.getenv('SQLALCHEMY_DATABASE_URI'))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
 # Singleton Database Connection Class
 class DatabaseConnection:
-    
+
     _instance = None
 
     def __new__(cls):
@@ -34,6 +35,7 @@ db_connection = DatabaseConnection()
 def check_queryparam() -> bool:
     return bool(request.args)
 
+
 def check_db_connection() -> bool:
     """Check if the application can connect to the database."""
     try:
@@ -44,10 +46,11 @@ def check_db_connection() -> bool:
         print(e)
         return False
 
+
 @app.route('/healthz', methods=['GET'])
 def health_check():
-    # Check if there are any query parameters
-    
+# Check if there are any query parameters
+
     if check_queryparam():
         return 'Query parameters not supported', 404
 
