@@ -49,7 +49,7 @@ def check_db_connection() -> bool:
 
 @app.route('/healthz', methods=['GET'])
 def health_check():
-# Check if there are any query parameters
+    # Check if there are any query parameters
 
     if check_queryparam():
         return 'Query parameters not supported', 404
