@@ -4,13 +4,14 @@ from sqlalchemy import text
 import os
 
 app = Flask(__name__)
-print(os.getenv('SQLALCHEMY_DATABASE_URI') )
+print(os.getenv('SQLALCHEMY_DATABASE_URI'))
 # Configure the database connection using SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')  
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Singleton Database Connection Class
 class DatabaseConnection:
+    
     _instance = None
 
     def __new__(cls):
@@ -26,7 +27,9 @@ class DatabaseConnection:
             self.db.session.remove()
             print("Database connection killed.")
 
+
 db_connection = DatabaseConnection()
+
 
 def check_queryparam() -> bool:
     return bool(request.args)
@@ -44,8 +47,9 @@ def check_db_connection() -> bool:
 @app.route('/healthz', methods=['GET'])
 def health_check():
     # Check if there are any query parameters
+    
     if check_queryparam():
-       return 'Query parameters not supported', 404 
+        return 'Query parameters not supported', 404
 
     # Check if there is a payload
     if request.data:
@@ -56,6 +60,7 @@ def health_check():
         return '', 200  # OK if successful
     else:
         return '', 503  # Service Unavailable if connection fails
+
 
 # @app.route('/kill-db', methods=['POST'])
 # def kill_db():
@@ -68,6 +73,7 @@ def health_check():
 def add_header(response):
     response.headers['Cache-Control'] = 'no-cache'
     return response
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
