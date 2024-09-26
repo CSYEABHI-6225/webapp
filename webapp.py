@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 print(os.getenv('SQLALCHEMY_DATABASE_URI') )
 # Configure the database connection using SQLAlchemy
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')  # Fallback if not set
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')  
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Singleton Database Connection Class
