@@ -66,7 +66,7 @@ The following Python packages are required:
 1. **Clone the Repository**
 
    ```bash
-<<<<<<< HEAD
+
    git clone https://github.com/username/flask-user-management.git
    ```
 
@@ -143,5 +143,4 @@ Ensure that your database is properly configured and accessible using the URI sp
     git
     Python3
     flask
-    SQLAlchemy
->>>>>>> 6a18dca3ef6a32c9f42d22fe670e9fd4445d8c6d
+

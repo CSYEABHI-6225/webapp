@@ -10,6 +10,8 @@ from sqlalchemy import text
 
 app = Flask(__name__)
 print(os.getenv('SQLALCHEMY_DATABASE_URI'))
+
+
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -41,6 +43,7 @@ def validate_email(email):
     return re.match(pattern, email) is not None
 
 
+
 def validate_name(name):
     return name.isalpha()
 
@@ -59,7 +62,6 @@ def verify_password(email, password):
     if user and user.check_password(password):
         return user
     return None
-
 
 
 def check_queryparam() -> bool:
