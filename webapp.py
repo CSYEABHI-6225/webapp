@@ -26,13 +26,12 @@ class User(db.Model):
     email = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.Text)
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
-    account_updated = db.Column(db.DateTime, default=datetime.utcnow, 
+    account_updated = db.Column(db.DateTime, default=datetime.utcnow,
                                 onupdate=datetime.utcnow)
 
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -119,17 +118,17 @@ def create_user():
 
         if User.query.filter_by(email=data['email']).first():
             return '', 400
-        
+
         new_user = User(
             first_name=data['first_name'],
             last_name=data['last_name'],
             email=data['email']
         )
         new_user.set_password(data['password'])
-        
+
         db.session.add(new_user)
         db.session.commit()
-        
+
         return jsonify({
             "id": new_user.id,
             "first_name": new_user.first_name,
@@ -151,7 +150,7 @@ def update_user():
 
     user = auth.current_user()
     data = request.json
-    
+
     if 'first_name' in data:
         if not validate_name(data['first_name']):
             return '', 400
@@ -164,9 +163,9 @@ def update_user():
         if not validate_password(data['password']):
             return '', 400
         user.set_password(data['password'])
-    
+
     db.session.commit()
-    
+
     return jsonify({
         "id": user.id,
         "first_name": user.first_name,
