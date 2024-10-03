@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,13 +7,17 @@ import re
 import os
 from sqlalchemy import text
 
+
 app = Flask(__name__)
 print(os.getenv('SQLALCHEMY_DATABASE_URI'))
+
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -22,23 +26,30 @@ class User(db.Model):
     email = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.Text)
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
-    account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    account_updated = db.Column(db.DateTime, default=datetime.utcnow, 
+                                onupdate=datetime.utcnow)
+
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
 
+
 def validate_name(name):
     return name.isalpha()
 
+
 def validate_password(password):
     return len(password) >= 8
+
 
 @auth.verify_password
 def verify_password(email, password):
@@ -51,38 +62,38 @@ def verify_password(email, password):
         return user
     return None
 
+
 def check_queryparam() -> bool:
     return bool(request.args)
+
 
 def check_db_connection() -> bool:
     """Check if the application can connect to the database."""
     try:
         db.session.execute(text('SELECT 1'))
         return True
-    except Exception as e:
-        print(e)
+    except Exception:
+        print("Database connection failed.")
         return False
+
 
 @app.route('/healthz', methods=['GET'])
 def health_check():
-
     if check_queryparam():
         return '', 404
-
 
     if request.data:
         return '', 400
 
-
     if check_db_connection():
         return jsonify({"status": "healthy"}), 200
     else:
-        return '', 503 
+        return '', 503
+
 
 @app.route('/v1/user', methods=['POST'])
 def create_user():
     try:
-
         if check_queryparam():
             return '', 404
 
@@ -90,8 +101,8 @@ def create_user():
         if not data:
             return '', 400
 
-        # Validate input data
-        if not all(key in data for key in ('first_name', 'last_name', 'email', 'password')):
+        required_keys = ('first_name', 'last_name', 'email', 'password')
+        if not all(key in data for key in required_keys):
             return '', 400
 
         if not validate_name(data['first_name']):
@@ -127,14 +138,14 @@ def create_user():
             "account_created": new_user.account_created.isoformat(),
             "account_updated": new_user.account_updated.isoformat()
         }), 201
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         return '', 500
+
 
 @app.route('/v1/user/self', methods=['PUT'])
 @auth.login_required
 def update_user():
-
     if check_queryparam():
         return '', 404
 
@@ -165,10 +176,10 @@ def update_user():
         "account_updated": user.account_updated.isoformat()
     }), 200
 
+
 @app.route('/v1/user/self', methods=['GET'])
 @auth.login_required
 def get_user():
-
     if check_queryparam():
         return '', 404
 
@@ -190,6 +201,7 @@ def get_user():
 def add_header(response):
     response.headers['Cache-Control'] = 'no-cache'
     return response
+
 
 if __name__ == '__main__':
     with app.app_context():
