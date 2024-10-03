@@ -43,7 +43,6 @@ def validate_email(email):
     return re.match(pattern, email) is not None
 
 
-
 def validate_name(name):
     return name.isalpha()
 
@@ -156,7 +155,6 @@ def update_user():
     required_fields = ['first_name', 'last_name', 'password', 'email']
 
     if not all(field in data for field in required_fields):
-        missing_fields = [field for field in required_fields if field not in data]
         return '', 400
 
     if not validate_name(data['first_name']):
