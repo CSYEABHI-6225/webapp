@@ -66,72 +66,6 @@ The following Python packages are required:
 1. **Clone the Repository**
 
    ```bash
-<<<<<<< HEAD
-   git clone https://github.com/username/flask-user-management.git
-   ```
-
-2. **Navigate to the Repository Directory**
-
-   ```bash
-   cd flask-user-management
-   ```
-
-3. **Create a Virtual Environment**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-4. **Install Dependencies**
-
-   Create a `requirements.txt` file with the following content:
-
-   ```
-   Flask>=2.0
-   Flask-SQLAlchemy>=2.5
-   Flask-HTTPAuth>=4.4
-   Werkzeug>=2.0
-   ```
-
-   Then install the dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **Set Environment Variables**
-
-   Ensure you have set the necessary environment variables:
-
-   ```bash
-   export SQLALCHEMY_DATABASE_URI='your-database-uri'
-   export HOSTNAME='0.0.0.0'
-   ```
-
-6. **Run the Application**
-
-   ```bash
-   python app.py
-   ```
-
-## Dependencies
-
-The application depends on several Python libraries, which are listed in the `requirements.txt` file:
-
-```plaintext
-Flask>=2.0
-Flask-SQLAlchemy>=2.5
-Flask-HTTPAuth>=4.4
-Werkzeug>=2.0
-```
-
-These dependencies can be installed using pip as described in the setup instructions above.
-
-## Additional Notes
-
-Ensure that your database is properly configured and accessible using the URI specified in `SQLALCHEMY_DATABASE_URI`. Adjust any configurations as needed for your specific environment or deployment scenario.
-=======
    git clone <repository-url>
    cd <repository-directory>
 
@@ -144,4 +78,3 @@ Ensure that your database is properly configured and accessible using the URI sp
     Python3
     flask
     SQLAlchemy
->>>>>>> 6a18dca3ef6a32c9f42d22fe670e9fd4445d8c6d
