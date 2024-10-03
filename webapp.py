@@ -14,6 +14,7 @@ print(os.getenv('SQLALCHEMY_DATABASE_URI'))
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['HOSTNAME']='0.0.0.0'
 
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
@@ -204,4 +205,4 @@ def add_header(response):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(host=os.getenv('HOSTNAME'))
