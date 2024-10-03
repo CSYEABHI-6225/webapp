@@ -66,7 +66,6 @@ The following Python packages are required:
 1. **Clone the Repository**
 
    ```bash
-
    git clone https://github.com/username/flask-user-management.git
    ```
 
@@ -131,16 +130,3 @@ These dependencies can be installed using pip as described in the setup instruct
 ## Additional Notes
 
 Ensure that your database is properly configured and accessible using the URI specified in `SQLALCHEMY_DATABASE_URI`. Adjust any configurations as needed for your specific environment or deployment scenario.
-=======
-   git clone <repository-url>
-   cd <repository-directory>
-
-   install Python
-   pip install flask
-   python webapp
-
-## Dependencies
-    git
-    Python3
-    flask
-
