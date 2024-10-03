@@ -153,18 +153,25 @@ def update_user():
     user = auth.current_user()
     data = request.json
 
-    if 'first_name' in data:
-        if not validate_name(data['first_name']):
-            return '', 400
-        user.first_name = data['first_name']
-    if 'last_name' in data:
-        if not validate_name(data['last_name']):
-            return '', 400
-        user.last_name = data['last_name']
-    if 'password' in data:
-        if not validate_password(data['password']):
-            return '', 400
-        user.set_password(data['password'])
+    required_fields = ['first_name', 'last_name', 'password', 'email']
+
+    if not all(field in data for field in required_fields):
+        missing_fields = [field for field in required_fields if field not in data]
+        return '', 400
+
+    if not validate_name(data['first_name']):
+        return '', 400
+    if not validate_name(data['last_name']):
+        return '', 400
+    if not validate_password(data['password']):
+        return '', 400
+    # Assuming you have an email validation function
+    if not validate_email(data['email']):
+        return '', 400
+
+    user.first_name = data['first_name']
+    user.last_name = data['last_name']
+    user.set_password(data['password'])
 
     db.session.commit()
 
