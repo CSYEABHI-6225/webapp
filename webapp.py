@@ -11,6 +11,7 @@ from sqlalchemy import text
 app = Flask(__name__)
 print(os.getenv('SQLALCHEMY_DATABASE_URI'))
 
+
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -40,6 +41,7 @@ class User(db.Model):
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
+
 
 
 def validate_name(name):
