@@ -29,7 +29,6 @@ class User(db.Model):
     account_updated = db.Column(db.DateTime, default=datetime.utcnow,
                                 onupdate=datetime.utcnow)
 
-
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
