@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from dotenv import load_dotenv
 import re
 import os
 from sqlalchemy import text
@@ -16,7 +15,7 @@ print(os.getenv('SQLALCHEMY_DATABASE_URI'))
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['HOSTNAME'] = '0.0.0.0'
+app.config['HOSTNAME'] = os.getenv('HOSTNAME')
 
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()

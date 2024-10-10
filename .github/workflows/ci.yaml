@@ -13,7 +13,7 @@ jobs:
       mysql:
         image: mysql:5.7
         env:
-          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
           MYSQL_DATABASE: patient
         ports:
           - 3306:3306
@@ -37,19 +37,19 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql Flask-SQLAlchemy flask-httpauth cryptography python-dotenv
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql Flask-SQLAlchemy flask-httpauth cryptography
 
       - name: Create MySQL user
         run: |
           docker exec ${{ job.services.mysql.id }} \
-          mysql -u root -proot_password -e "CREATE USER 'username'@'%' IDENTIFIED BY 'password'; \
-          GRANT ALL PRIVILEGES ON *.* TO 'username'@'%'; FLUSH PRIVILEGES;"
+          mysql -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} -e "CREATE USER '${{ secrets.MYSQL_USER }}'@'%' IDENTIFIED BY '${{ secrets.MYSQL_PASSWORD }}'; \
+          GRANT ALL PRIVILEGES ON *.* TO '${{ secrets.MYSQL_USER }}'@'%'; FLUSH PRIVILEGES;"
 
       - name: Create .env file
         run: |
           echo "FLASK_APP=webapp.py" >> .env
           echo "FLASK_ENV=development" >> .env
-          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://username:password@localhost/patient" >> .env
+          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@localhost/patient" >> .env
           echo "HOSTNAME=0.0.0.0" >> .env
 
       - name: Load environment variables
