@@ -47,11 +47,14 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "export FLASK_APP=~/webapp.py" >> $GITHUB_ENV
-          echo "export FLASK_ENV=development" >> $GITHUB_ENV
-          echo "export SQLALCHEMY_DATABASE_URI='mysql+pymysql://username:password@localhost/patient'" >> $GITHUB_ENV
-          echo "export HOSTNAME='0.0.0.0'" >> $GITHUB_ENV
-          source $GITHUB_ENV
+          echo "FLASK_APP=webapp.py" >> .env
+          echo "FLASK_ENV=development" >> .env
+          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://username:password@localhost/patient" >> .env
+          echo "HOSTNAME=0.0.0.0" >> .env
+
+      - name: Load environment variables
+        run: |
+          set -o allexport; source .env; set +o allexport
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
