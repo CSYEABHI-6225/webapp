@@ -37,7 +37,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql Flask-SQLAlchemy flask-httpauth cryptography
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography
 
       - name: Create MySQL user
         run: |
@@ -51,10 +51,6 @@ jobs:
           echo "FLASK_ENV=development" >> .env
           echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@localhost/patient" >> .env
           echo "HOSTNAME=0.0.0.0" >> .env
-
-      - name: Load environment variables
-        run: |
-          set -o allexport; source .env; set +o allexport
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
