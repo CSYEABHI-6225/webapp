@@ -37,7 +37,7 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql Flask-SQLAlchemy flask-httpauth cryptography
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql Flask-SQLAlchemy flask-httpauth cryptography python-dotenv
 
       - name: Create MySQL user
         run: |
