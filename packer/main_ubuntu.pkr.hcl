@@ -54,12 +54,12 @@ build {
   sources = ["source.amazon-ebs.ubuntu"]
 
   provisioner "file" {
-  source      = "./webapp"  // Replace with the actual full path
+  source      = "./"  // Replace with the actual full path
   destination = "/tmp/webapp"
 }
 
   provisioner "file"{
-    source    = "./webapp/.env"
+    source    = "./.env"
     destination = "/tmp/webapp/.env"
   }
 
