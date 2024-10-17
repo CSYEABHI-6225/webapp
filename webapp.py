@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 import re
 import os
+import uuid
 from sqlalchemy import text
 
 load_dotenv()
 
 app = Flask(__name__)
 print(os.getenv('SQLALCHEMY_DATABASE_URI'))
-
 
 # Configure the database connection using SQLAlchemy
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
@@ -24,16 +24,14 @@ db = SQLAlchemy(app)
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
 auth = HTTPBasicAuth()
 
-
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))  # Changed to UUID
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.Text)
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
-    account_updated = db.Column(db.DateTime, default=datetime.utcnow,
-                                onupdate=datetime.utcnow)
+    account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -41,19 +39,15 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
 
-
 def validate_name(name):
     return name.isalpha()
 
-
 def validate_password(password):
     return len(password) >= 8
-
 
 @auth.verify_password
 def verify_password(email, password):
@@ -66,10 +60,8 @@ def verify_password(email, password):
         return user
     return None
 
-
 def check_queryparam() -> bool:
     return bool(request.args)
-
 
 def check_db_connection() -> bool:
     """Check if the application can connect to the database."""
@@ -79,7 +71,6 @@ def check_db_connection() -> bool:
     except Exception:
         print("Database connection failed.")
         return False
-
 
 @app.route('/healthz', methods=['GET'])
 def health_check():
@@ -93,7 +84,6 @@ def health_check():
         return '', 200
     else:
         return '', 503
-
 
 @app.route('/v1/user', methods=['POST'])
 def create_user():
@@ -146,7 +136,6 @@ def create_user():
         db.session.rollback()
         return '', 500
 
-
 @app.route('/v1/user/self', methods=['PUT'])
 @auth.login_required
 def update_user():
@@ -167,7 +156,6 @@ def update_user():
         return '', 400
     if not validate_password(data['password']):
         return '', 400
-    # Assuming you have an email validation function
     if not validate_email(data['email']):
         return '', 400
 
@@ -185,7 +173,6 @@ def update_user():
         "account_created": user.account_created.isoformat(),
         "account_updated": user.account_updated.isoformat()
     }), 200
-
 
 @app.route('/v1/user/self', methods=['GET'])
 @auth.login_required
@@ -206,12 +193,14 @@ def get_user():
         "account_updated": user.account_updated.isoformat()
     }), 200
 
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return '', 405
 
 @app.after_request
 def add_header(response):
     response.headers['Cache-Control'] = 'no-cache'
     return response
-
 
 if __name__ == '__main__':
     with app.app_context():
