@@ -4,6 +4,7 @@ from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
 import re
 import os
 from sqlalchemy import text
@@ -20,6 +21,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['HOSTNAME'] = os.getenv('HOSTNAME')
 
 db = SQLAlchemy(app)
+engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
 auth = HTTPBasicAuth()
 
 
@@ -88,7 +90,7 @@ def health_check():
         return '', 400
 
     if check_db_connection():
-        return jsonify({"status": "healthy"}), 200
+        return '', 200
     else:
         return '', 503
 
