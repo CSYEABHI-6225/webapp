@@ -33,6 +33,9 @@ jobs:
     - name: Initialize Packer
       run: packer init ./packer/main_ubuntu.pkr.hcl
 
+    - name: Format Packer template
+      run: packer fmt ./packer/main_ubuntu.pkr.hcl
+
     - name: Check Packer template formatting
       id: fmt
       run: packer fmt -check -diff ./packer/main_ubuntu.pkr.hcl

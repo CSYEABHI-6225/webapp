@@ -1,0 +1,105 @@
+name: Packer AMI Build and Share
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main  # Trigger only after merging into the main branch
+
+jobs:
+  build-and-share-ami:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: ${{ secrets.DB_NAME }}
+          MYSQL_USER: ${{ secrets.DB_USER }}
+          MYSQL_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install MySQL Client
+      run: sudo apt-get install mysql-client -y
+
+    - name: Setup MySQL Database
+      run: |
+        mysql -h 127.0.0.1 -u root -prootpass -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.DB_NAME }};"
+        mysql -h 127.0.0.1 -u root -prootpass -e "CREATE USER IF NOT EXISTS '${{ secrets.DB_USER }}'@'localhost' IDENTIFIED BY '${{ secrets.DB_PASSWORD }}';"
+        mysql -h 127.0.0.1 -u root -prootpass -e "GRANT ALL PRIVILEGES ON ${{ secrets.DB_NAME }}.* TO '${{ secrets.DB_USER }}'@'localhost';"
+        mysql -h 127.0.0.1 -u root -prootpass -e "FLUSH PRIVILEGES;"
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create .env file at project root
+      run: |
+        echo "FLASK_APP=webapp.py" > .env
+        echo "FLASK_ENV=development" >> .env
+        echo "HOSTNAME=0.0.0.0" >> .env
+        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost/${{ secrets.DB_NAME }}" >> .env
+
+    - name: Run Tests
+      run: python -m pytest
+
+    - name: Setup AWS CLI
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.DEV_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.DEV_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Install Packer
+      run: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+        sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+        sudo apt-get update && sudo apt-get install packer
+
+    - name: Initialize Packer
+      run: packer init ./packer
+
+    - name: Build AMI using Packer
+      run: |
+        packer build -machine-readable \
+          -var "aws_access_key=${{ secrets.DEV_ACCESS_KEY }}" \
+          -var "aws_secret_key=${{ secrets.DEV_SECRET_KEY }}" \
+          -var "region=${{ secrets.REGION }}" \
+          -var "instance_type=${{ secrets.INSTANCE_TYPE }}" \
+          -var "ami_name=${{ secrets.AMI_NAME }}" \
+          ./packer/main_ubuntu.pkr.hcl | tee build_output.txt
+      env:
+        PACKER_LOG: 1
+
+    - name: Extract AMI ID
+      id: extract_ami
+      run: |
+        AMI_ID=$(grep 'artifact,0,id' build_output.txt | cut -d, -f6 | cut -d: -f2)
+        echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+
+    - name: Share AMI with DEMO Account
+      run: |
+        aws ec2 modify-image-attribute --image-id ${{ env.AMI_ID }} --launch-permission "Add=[{UserId=${{ secrets.DEMO_ACCOUNT_ID }} }]"
+      env:
+        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
