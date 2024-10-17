@@ -62,7 +62,9 @@ jobs:
         echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
 
     - name: Run Tests
-      run: python -m pytest
+      run: |
+        source venv/bin/activate  # Activate the virtual environment
+        python -m pytest
 
     - name: Setup AWS CLI
       uses: aws-actions/configure-aws-credentials@v1
