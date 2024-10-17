@@ -32,6 +32,13 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: '3.x'
+    
+    - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography
 
     - name: Install MySQL Client
       run: sudo apt-get install mysql-client -y
