@@ -1,9 +1,9 @@
 name: Packer AMI Build and Share
 
 on:
-  pull_request:  # Include these events
+  pull_request:
     branches:
-      - main  # Trigger only for pull requests targeting the main branch
+      - main
 
 jobs:
   build-and-share-ami:
@@ -63,7 +63,7 @@ jobs:
 
     - name: Run Tests
       run: |
-        source venv/bin/activate  # Activate the virtual environment
+        source venv/bin/activate
         python -m pytest
 
     - name: Setup AWS CLI
@@ -71,7 +71,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}  # Ensure this line is present
+        aws-region: ${{ secrets.REGION }}  # Ensure this line is present and correct
 
     - name: Install Packer
       run: |
@@ -104,4 +104,4 @@ jobs:
       run: |
         aws ec2 modify-image-attribute --image-id ${{ env.AMI_ID }} --launch-permission "Add=[{UserId=${{ secrets.DEMO_ACCOUNT_ID }} }]"
       env:
-        AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+        AWS_DEFAULT_REGION: ${{ secrets.REGION }}
