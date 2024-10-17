@@ -52,13 +52,13 @@ jobs:
 
     - name: Create .env file at project root
       run: |
-        echo "FLASK_APP=webapp.py" > .env
-        echo "FLASK_ENV=development" >> .env
-        echo "HOSTNAME=0.0.0.0" >> .env
+        echo "FLASK_APP=${{ secrets.FLASK_APP }}" > .env
+        echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
+        echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
         echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
         echo "DB_USER=${{ secrets.DB_USER }}" >> .env
         echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-        echo "DB_HOST=localhost" >> .env
+        echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
         echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost/${{ secrets.DB_NAME }}" >> .env
 
     - name: Run Tests
