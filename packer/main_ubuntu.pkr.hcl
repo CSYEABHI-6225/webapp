@@ -29,9 +29,6 @@ variable "ami_name" {
   type    = string
 }
 
-variable "ssh_keypair" {
-  type    = string
-}
 
 source "amazon-ebs" "ubuntu" {
   ami_name = "${replace(var.ami_name, "/[^a-zA-Z0-9-]/", "")}-${formatdate("YYYYMMDDHHmmss", timestamp())}"
