@@ -1,0 +1,57 @@
+name: Packer CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  packer-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Install Packer
+      run: |
+        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+        sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+        sudo apt-get update && sudo apt-get install packer
+
+    - name: Create .env file at project root
+      run: |
+        echo "FLASK_APP=webapp.py" > .env
+        echo "FLASK_ENV=development" >> .env
+        echo "HOSTNAME=0.0.0.0" >> .env
+        echo "DB_NAME=patient" >> .env
+        echo "DB_USER=webappuser" >> .env
+        echo "DB_PASSWORD=webapppassword" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://webappuser:webapppassword@localhost/patient" >> .env
+
+    - name: Initialize Packer
+      run: packer init ./packer/main_ubuntu.pkr.hcl
+
+    - name: Format Packer template
+      run: packer fmt ./packer/main_ubuntu.pkr.hcl
+
+    - name: Check Packer template formatting
+      id: fmt
+      run: packer fmt -check -diff ./packer/main_ubuntu.pkr.hcl
+      continue-on-error: true
+
+    - name: Fail if formatting needed
+      if: steps.fmt.outcome == 'failure'
+      run: |
+        echo "Packer files need to be formatted. Please run 'packer fmt' locally."
+        exit 1
+
+    - name: Validate Packer template
+      run: |
+        packer validate -var "aws_access_key=${{ secrets.DEV_ACCESS_KEY }}" \
+                        -var "aws_secret_key=${{ secrets.DEV_SECRET_KEY }}" \
+                        -var "region=${{ secrets.REGION }}" \
+                        -var "instance_type=${{ secrets.INSTANCE_TYPE }}" \
+                        -var "ami_name=${{ secrets.AMI_NAME }}" \
+                        ./packer/main_ubuntu.pkr.hcl
