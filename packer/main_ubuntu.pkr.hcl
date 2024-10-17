@@ -53,15 +53,31 @@ source "amazon-ebs" "ubuntu" {
 build {
   sources = ["source.amazon-ebs.ubuntu"]
 
-  provisioner "file" {
-  source      = "./"  // Replace with the actual full path
-  destination = "/tmp/webapp"
+  provisioner "shell" {
+  inline = [
+    "if [ -e /tmp/webapp ]; then rm -rf /tmp/webapp; fi",  // Remove /tmp/webapp if it exists
+    "mkdir -p /tmp/webapp"  // Create the directory
+  ]
 }
 
-  provisioner "file"{
-    source    = "./.env"
-    destination = "/tmp/webapp/.env"
-  }
+provisioner "file" {
+  source      = "./"  // Upload all files in the current directory
+  destination = "/tmp/webapp"  // Destination on the instance
+}
+
+provisioner "file" {
+  source      = "./.env"  // Upload the .env file
+  destination = "/tmp/webapp/.env"
+}
+
+provisioner "shell" {
+  inline = [
+    "chown -R $(whoami):$(whoami) /tmp/webapp",  // Change ownership to avoid permission issues
+    "ls -l /tmp/webapp",  // List files in the directory to verify successful upload
+  ]
+}
+
+
 
  provisioner "shell" {
   scripts = [
