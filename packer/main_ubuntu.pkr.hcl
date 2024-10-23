@@ -7,7 +7,7 @@ packer {
   }
 }
 
-variable "region" {
+  variable "region" {
   type    = string
 }
 
