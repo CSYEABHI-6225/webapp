@@ -32,7 +32,7 @@ variable "ami_name" {
 
 source "amazon-ebs" "ubuntu" {
   ami_name = "${replace(var.ami_name, "/[^a-zA-Z0-9-]/", "")}-${formatdate("YYYYMMDDHHmmss", timestamp())}"
-  instance_type    = varr.instance_type
+  instance_type    = var.instance_type
   region           = var.region
   ssh_username     = "ubuntu"
   ssh_timeout      = "15m"
