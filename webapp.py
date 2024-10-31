@@ -19,6 +19,19 @@ import logging.config
 import statsd
 import atexit
 
+# Near the top of webapp.py, after your imports
+USE_CLOUDWATCH = os.getenv('USE_CLOUDWATCH', 'false').lower() == 'true'
+
+# Replace your CloudWatch configuration with this conditional block
+if USE_CLOUDWATCH:
+    cloudwatch_handler = watchtower.CloudWatchLogHandler(
+        log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
+        log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
+        use_queues=False,
+        create_log_group=True
+    )
+    logger.addHandler(cloudwatch_handler)
+
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
     os.makedirs('logs')

@@ -60,11 +60,14 @@ jobs:
           echo "SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }}" >> .env
           echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "USE_CLOUDWATCH=false" >> .env
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
 
       - name: Run tests
+        env:
+          USE_CLOUDWATCH: "false"
         run: |
           source venv/bin/activate
           pytest -v
