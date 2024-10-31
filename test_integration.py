@@ -9,13 +9,13 @@ os.environ['TESTING'] = 'True'
 os.environ['AWS_REGION'] = 'us-east-1'
 
 # Create mock modules
-mock_watchtower = MagicMock()
 mock_boto3 = MagicMock()
+mock_watchtower = MagicMock()
 
 # Mock AWS services before importing webapp
 with patch.dict('sys.modules', {
-    'watchtower': mock_watchtower,
-    'boto3': mock_boto3
+    'boto3': mock_boto3,
+    'watchtower': mock_watchtower
 }):
     from webapp import app, db, User
 
@@ -25,7 +25,7 @@ def client():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+    
     with app.test_client() as client:
         with app.app_context():
             db.create_all()
