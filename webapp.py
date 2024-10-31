@@ -20,23 +20,6 @@ import statsd
 import atexit
 
 
-# Add this line to check if we're in test mode
-# Near the top of webapp.py, after imports
-TESTING = os.getenv('TESTING', 'False').lower() == 'true'
-
-# Modify your CloudWatch initialization
-if not TESTING:
-    try:
-        cloudwatch_handler = watchtower.CloudWatchLogHandler(
-            log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
-            log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
-            use_queues=False,
-            create_log_group=True
-        )
-        logger.addHandler(cloudwatch_handler)
-    except Exception as e:
-        print(f"CloudWatch initialization failed: {e}")
-
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
     os.makedirs('logs')
@@ -61,6 +44,25 @@ logger.addHandler(file_handler)
 load_dotenv()
 
 app = Flask(__name__)
+
+# Add this line to check if we're in test mode
+# Near the top of webapp.py, after imports
+TESTING = os.getenv('TESTING', 'False').lower() == 'true'
+
+# Modify your CloudWatch initialization
+if not TESTING:
+    try:
+        cloudwatch_handler = watchtower.CloudWatchLogHandler(
+            log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
+            log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
+            use_queues=False,
+            create_log_group=True
+        )
+        logger.addHandler(cloudwatch_handler)
+    except Exception as e:
+        print(f"CloudWatch initialization failed: {e}")
+
+
 
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
