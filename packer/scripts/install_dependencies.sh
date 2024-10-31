@@ -30,42 +30,49 @@ wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-
 sudo dpkg -i -E ./amazon-cloudwatch-agent.deb
 
 # Create CloudWatch agent configuration
-sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
-sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json > /dev/null << 'EOF'
+echo "Creating temporary CloudWatch configuration file at /tmp/cloudwatch-config.json..."
+cat > /tmp/cloudwatch-config.json <<'CLOUDWATCH_EOF'
 {
-    "agent": {
-        "metrics_collection_interval": 60,
-        "run_as_user": "root"
-    },
-    "logs": {
-        "logs_collected": {
-            "files": {
-                "collect_list": [
-                    {
-                        "file_path": "/opt/csye6225/webapp/log/webapp.log",
-                        "log_group_name": "csye6225",
-                        "log_stream_name": "webapp"
-                    }
-                ]
-            }
-        }
-    },
-    "metrics": {
-        "metrics_collected": {
-            "statsd": {
-                "service_address": ":8125",
-                "metrics_collection_interval": 60,
-                "metrics_aggregation_interval": 60
-            }
-        }
+  "agent": {
+      "metrics_collection_interval": 10,
+      "logfile": "/var/log/amazon-cloudwatch-agent.log"
+  },
+  "logs": {
+      "logs_collected": {
+          "files": {
+              "collect_list": [
+                  {
+                      "file_path": "/opt/csye6225/webapp/log/webapp.log",
+                      "log_group_name": "csye6225",
+                      "log_stream_name": "webapp"
+                  }
+              ]
+          }
+      }
+  },
+  "metrics": {
+    "metrics_collected": {
+       "statsd": {
+          "service_address": ":8125",
+          "metrics_collection_interval": 15,
+          "metrics_aggregation_interval": 60
+       }
     }
+  }
 }
-EOF
+CLOUDWATCH_EOF
 
-# Configure and start CloudWatch agent
-sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-sudo systemctl enable amazon-cloudwatch-agent
-sudo systemctl start amazon-cloudwatch-agent
+echo "Moving configuration file to /opt/cloudwatch-config.json..."
+sudo mv /tmp/cloudwatch-config.json /opt/cloudwatch-config.json
+
+# Step 3: Create the log file /var/log/csye6225.log
+echo "Creating log file /var/log/csye6225.log..."
+sudo touch /var/log/csye6225.log
+
+# Step 4: Reload the system daemon
+echo "Reloading system daemon..."
+sudo systemctl daemon-reload
+
 
 # Install Python packages
 sudo python3 -m pip install gunicorn boto3 watchtower statsd
