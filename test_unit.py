@@ -1,10 +1,12 @@
 import os
-os.environ['TESTING'] = 'True'
-os.environ['AWS_REGION'] = 'us-east-1'
-
 import unittest
-from webapp import app, db, User
-from webapp import validate_email, validate_name, validate_password
+from unittest.mock import patch, MagicMock
+
+# Mock AWS services before importing webapp
+with patch('boto3.client'), \
+     patch('boto3.Session'), \
+     patch('watchtower.CloudWatchLogHandler'):
+    from webapp import app, db, User
 
 class TestValidators(unittest.TestCase):
     def setUp(self):
