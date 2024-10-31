@@ -41,7 +41,7 @@ jobs:
         python -m venv venv
         source venv/bin/activate
         pip install --upgrade pip
-        pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography
+        pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3
 
     - name: Setup MySQL Database
       run: |
@@ -60,6 +60,8 @@ jobs:
         echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
         echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
         echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
+        echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
+        echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
 
     - name: Run Tests
       run: |

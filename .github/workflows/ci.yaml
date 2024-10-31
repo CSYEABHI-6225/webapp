@@ -13,8 +13,10 @@ jobs:
       mysql:
         image: mysql:5.7
         env:
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-          MYSQL_DATABASE: patient
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ${{ secrets.DB_NAME }}
+          MYSQL_USER: ${{ secrets.DB_USER }}
+          MYSQL_PASSWORD: ${{ secrets.DB_PASSWORD }}
         ports:
           - 3306:3306
         options: >-
@@ -37,25 +39,32 @@ jobs:
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography
-
-      - name: Create MySQL user
-        run: |
-          docker exec ${{ job.services.mysql.id }} \
-          mysql -u root -p${{ secrets.MYSQL_ROOT_PASSWORD }} -e "CREATE USER '${{ secrets.MYSQL_USER }}'@'%' IDENTIFIED BY '${{ secrets.MYSQL_PASSWORD }}'; \
-          GRANT ALL PRIVILEGES ON *.* TO '${{ secrets.MYSQL_USER }}'@'%'; FLUSH PRIVILEGES;"
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd pytest-mock
 
       - name: Create .env file
         run: |
-          echo "FLASK_APP=webapp.py" >> .env
-          echo "FLASK_ENV=development" >> .env
-          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@localhost/patient" >> .env
-          echo "HOSTNAME=0.0.0.0" >> .env
+          cat << EOF > .env
+          FLASK_APP=${{ secrets.FLASK_APP }}
+          FLASK_ENV=${{ secrets.FLASK_ENV }}
+          HOSTNAME=${{ secrets.HOSTNAME }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }}
+          AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
+          AWS_REGION=us-east-1
+          TESTING=True
+          EOF
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
 
       - name: Run tests
+        env:
+          TESTING: "True"
+          AWS_REGION: "us-east-1"
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           source venv/bin/activate
-          pytest
+          pytest -v
