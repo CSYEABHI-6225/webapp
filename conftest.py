@@ -5,9 +5,13 @@ from unittest.mock import patch, MagicMock
 @pytest.fixture(autouse=True)
 def mock_aws():
     """Mock AWS services for all tests"""
-    with patch('boto3.client'), \
-         patch('boto3.Session'), \
-         patch('watchtower.CloudWatchLogHandler'):
+    mock_watchtower = MagicMock()
+    mock_boto3 = MagicMock()
+    
+    with patch.dict('sys.modules', {
+        'watchtower': mock_watchtower,
+        'boto3': mock_boto3
+    }):
         yield
 
 @pytest.fixture(autouse=True)

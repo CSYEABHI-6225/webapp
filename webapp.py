@@ -98,6 +98,7 @@ class User(db.Model):
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
     account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     images = db.relationship('Image', backref='user', lazy=True, cascade="all, delete-orphan")
+    __table_args__ = {'sqlite_on_conflict': 'IGNORE'}
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -112,6 +113,7 @@ class Image(db.Model):
     url = db.Column(db.String(512), nullable=False)
     upload_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.String(36), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    __table_args__ = {'sqlite_on_conflict': 'IGNORE'}
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'

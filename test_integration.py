@@ -1,33 +1,37 @@
 import os
-os.environ['TESTING'] = 'True'
-os.environ['AWS_REGION'] = 'us-east-1'
-
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
 import json
 
-# Mock AWS services before importing webapp
-mock_boto3 = MagicMock()
-mock_watchtower = MagicMock()
+# Set testing environment variables
+os.environ['TESTING'] = 'True'
+os.environ['AWS_REGION'] = 'us-east-1'
 
+# Create mock modules
+mock_watchtower = MagicMock()
+mock_boto3 = MagicMock()
+
+# Mock AWS services before importing webapp
 with patch.dict('sys.modules', {
-    'boto3': mock_boto3,
-    'watchtower': mock_watchtower
+    'watchtower': mock_watchtower,
+    'boto3': mock_boto3
 }):
     from webapp import app, db, User
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def client():
+    """Create a test client"""
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['TESTING'] = True
-    
-    with app.app_context():
-        # Create all tables
-        db.create_all()
-        yield app.test_client()
-        # Clean up
-        db.session.remove()
-        db.drop_all()
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    with app.test_client() as client:
+        with app.app_context():
+            db.create_all()
+            yield client
+            db.session.remove()
+            db.drop_all()
 
 def test_health_check(client):
     """Test health check endpoint"""

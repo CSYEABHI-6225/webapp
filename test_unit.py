@@ -1,31 +1,39 @@
 import os
+import sys
+import unittest
+from unittest.mock import patch, MagicMock
+
+# Set testing environment variables
 os.environ['TESTING'] = 'True'
 os.environ['AWS_REGION'] = 'us-east-1'
 
-import unittest
-from unittest.mock import patch, MagicMock
-import json
+# Create mock modules
+mock_watchtower = MagicMock()
+mock_boto3 = MagicMock()
 
 # Mock AWS services before importing webapp
-mock_boto3 = MagicMock()
-mock_watchtower = MagicMock()
-
 with patch.dict('sys.modules', {
-    'boto3': mock_boto3,
-    'watchtower': mock_watchtower
+    'watchtower': mock_watchtower,
+    'boto3': mock_boto3
 }):
     from webapp import app, db, User, validate_email, validate_name, validate_password
 
 class TestValidators(unittest.TestCase):
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
+        """Set up test database once for all tests"""
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         app.config['TESTING'] = True
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+        
+    def setUp(self):
+        """Set up test database for each test"""
         self.app = app.test_client()
         with app.app_context():
-            # Create all tables
             db.create_all()
 
     def tearDown(self):
+        """Clean up after each test"""
         with app.app_context():
             db.session.remove()
             db.drop_all()
