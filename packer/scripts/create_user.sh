@@ -28,7 +28,7 @@ fi
 
 
 
-sudo chown ubuntu:ubuntu /opt/csye6225/webapp/.env
+sudo chown csye6225:csye6225 /opt/csye6225/webapp/.env
 sudo chmod 600 /opt/csye6225/webapp/.env
 
 # Set up virtual environment for the application
