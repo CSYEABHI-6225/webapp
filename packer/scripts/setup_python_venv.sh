@@ -14,7 +14,7 @@ source /opt/csye6225/webapp/venv/bin/activate
 source /tmp/webapp/.env
 
 # Install required packages
-pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography
+pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd
 
 # Deactivate the virtual environment
 deactivate
