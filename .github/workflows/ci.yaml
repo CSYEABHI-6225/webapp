@@ -32,12 +32,19 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Configure AWS Credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_REGION: us-east-1
+
       - name: Install dependencies
         run: |
           python -m venv venv
           source venv/bin/activate
           pip install --upgrade pip
-          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd pytest-mock
 
       - name: Create MySQL user
         run: |
@@ -51,11 +58,20 @@ jobs:
           echo "FLASK_ENV=development" >> .env
           echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.MYSQL_USER }}:${{ secrets.MYSQL_PASSWORD }}@localhost/patient" >> .env
           echo "HOSTNAME=0.0.0.0" >> .env
+          echo "AWS_REGION=us-east-1" >> .env
+          echo "AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}" >> .env
+          echo "AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}" >> .env
+          echo "AWS_BUCKET_NAME=test-bucket" >> .env
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
 
       - name: Run tests
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_REGION: us-east-1
         run: |
           source venv/bin/activate
-          pytest
+          pytest -v
