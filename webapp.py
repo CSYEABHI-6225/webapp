@@ -57,11 +57,31 @@ app.config['AWS_REGION'] = os.getenv('AWS_REGION', 'us-east-1')
 app.config['AWS_BUCKET_NAME'] = os.getenv('AWS_BUCKET_NAME')
 
 db = SQLAlchemy(app)
-engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-auth = HTTPBasicAuth()
 
-# Configure StatsD for metrics
-statsd_client = statsd.StatsClient('localhost', 8125)
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    first_name = db.Column(db.String(80), nullable=False)
+    last_name = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255))
+    account_created = db.Column(db.DateTime, default=datetime.utcnow)
+    account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    images = db.relationship('Image', backref='user', lazy=True, cascade="all, delete-orphan")
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Image(db.Model):
+    __tablename__ = 'image'
+    file_name = db.Column(db.String(255), nullable=False)
+    id = db.Column(db.String(36), primary_key=True)
+    url = db.Column(db.String(512), nullable=False)
+    upload_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    user_id = db.Column(db.String(36), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
 
 # Initialize AWS services only if not in testing mode
 if not TESTING:
@@ -88,32 +108,7 @@ else:
     aws_session = None
     s3_client = None
 
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.String(36), primary_key=True, default=str(uuid.uuid4()))
-    first_name = db.Column(db.String(80), nullable=False)
-    last_name = db.Column(db.String(80), nullable=False)
-    email = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255))
-    account_created = db.Column(db.DateTime, default=datetime.utcnow)
-    account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    images = db.relationship('Image', backref='user', lazy=True, cascade="all, delete-orphan")
-    __table_args__ = {'sqlite_on_conflict': 'IGNORE'}
-    
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-class Image(db.Model):
-    __tablename__ = 'image'
-    file_name = db.Column(db.String(255), nullable=False)
-    id = db.Column(db.String(36), primary_key=True)
-    url = db.Column(db.String(512), nullable=False)
-    upload_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    user_id = db.Column(db.String(36), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
-    __table_args__ = {'sqlite_on_conflict': 'IGNORE'}
+auth = HTTPBasicAuth()
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -127,6 +122,7 @@ def validate_password(password):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
 
 @auth.verify_password
 def verify_password(email, password):
