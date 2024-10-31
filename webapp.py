@@ -19,18 +19,22 @@ import logging.config
 import statsd
 import atexit
 
-# Near the top of webapp.py, after your imports
-USE_CLOUDWATCH = os.getenv('USE_CLOUDWATCH', 'false').lower() == 'true'
 
-# Replace your CloudWatch configuration with this conditional block
-if USE_CLOUDWATCH:
-    cloudwatch_handler = watchtower.CloudWatchLogHandler(
-        log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
-        log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
-        use_queues=False,
-        create_log_group=True
-    )
-    logger.addHandler(cloudwatch_handler)
+# Add this line to check if we're in test mode
+TESTING = os.getenv('TESTING', 'False').lower() == 'true'
+
+# Replace your existing CloudWatch configuration with this:
+if not TESTING:  # Only initialize CloudWatch if not in testing mode
+    try:
+        cloudwatch_handler = watchtower.CloudWatchLogHandler(
+            log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
+            log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
+            use_queues=False,
+            create_log_group=True
+        )
+        logger.addHandler(cloudwatch_handler)
+    except Exception as e:
+        print(f"CloudWatch initialization failed: {e}")
 
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):

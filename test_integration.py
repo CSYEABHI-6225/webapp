@@ -1,28 +1,21 @@
+import os
+os.environ['TESTING'] = 'True'  # Set this before importing webapp
+
 import pytest
-from unittest.mock import patch, MagicMock
 from webapp import app, db, User
 import json
-
-@pytest.fixture(autouse=True)
-def mock_aws():
-    with patch('boto3.client') as mock_boto:
-        with patch('watchtower.CloudWatchLogHandler') as mock_cloudwatch:
-            yield
 
 @pytest.fixture
 def client():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['AWS_REGION'] = 'us-east-1'
-    app.config['AWS_ACCESS_KEY'] = 'test-key'
-    app.config['AWS_SECRET_KEY'] = 'test-secret'
-    app.config['AWS_BUCKET_NAME'] = 'test-bucket'
-    
     with app.app_context():
         db.create_all()
     yield app.test_client()
     with app.app_context():
         db.session.remove()
         db.drop_all()
+
+# ... rest of your test cases ...
 
 # ... rest of your test cases ...
 
