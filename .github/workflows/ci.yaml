@@ -43,33 +43,27 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "FLASK_APP=${{ secrets.FLASK_APP }}" >> .env
-          echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
-          echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
-          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }}" >> .env
-          echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
-          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          cat << EOF > .env
+          FLASK_APP=${{ secrets.FLASK_APP }}
+          FLASK_ENV=${{ secrets.FLASK_ENV }}
+          HOSTNAME=${{ secrets.HOSTNAME }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }}
+          AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          TESTING=True
+          EOF
 
       - name: Wait for MySQL to be ready
         run: sleep 15s
 
       - name: Run tests
         env:
-          FLASK_APP: ${{ secrets.FLASK_APP }}
-          FLASK_ENV: ${{ secrets.FLASK_ENV }}
-          HOSTNAME: ${{ secrets.HOSTNAME }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          SQLALCHEMY_DATABASE_URI: ${{ secrets.SQLALCHEMY_DATABASE_URI }}
-          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          TESTING: "True"  # Add this to disable CloudWatch during tests
+          TESTING: "True"
+          AWS_REGION: "us-east-1"
         run: |
           source venv/bin/activate
           pytest -v

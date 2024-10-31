@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
@@ -7,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from logging.handlers import RotatingFileHandler  # Add this import
+from logging.handlers import RotatingFileHandler
 import re
 import os
 import uuid
@@ -18,7 +17,6 @@ import watchtower
 import logging.config
 import statsd
 import atexit
-
 
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
@@ -43,26 +41,10 @@ logger.addHandler(file_handler)
 
 load_dotenv()
 
-app = Flask(__name__)
-
-# Add this line to check if we're in test mode
-# Near the top of webapp.py, after imports
+# Check if we're in test mode
 TESTING = os.getenv('TESTING', 'False').lower() == 'true'
 
-# Modify your CloudWatch initialization
-if not TESTING:
-    try:
-        cloudwatch_handler = watchtower.CloudWatchLogHandler(
-            log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
-            log_stream_name=app.config['AWS_CLOUDWATCH_LOG_STREAM'],
-            use_queues=False,
-            create_log_group=True
-        )
-        logger.addHandler(cloudwatch_handler)
-    except Exception as e:
-        print(f"CloudWatch initialization failed: {e}")
-
-
+app = Flask(__name__)
 
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
@@ -71,12 +53,31 @@ app.config['HOSTNAME'] = os.getenv('HOSTNAME')
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
 
 # AWS Configuration
-# AWS Configuration
-# AWS Configuration
+
 app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY')
 app.config['AWS_SECRET_KEY'] = os.getenv('AWS_SECRET_KEY')
 app.config['AWS_BUCKET_NAME'] = os.getenv('AWS_BUCKET_NAME')
 app.config['AWS_REGION'] = os.getenv('AWS_REGION')
+
+if not TESTING:
+    aws_session = boto3.Session(
+        region_name=app.config['AWS_REGION']
+    )
+
+    # Initialize S3 client
+    s3_client = aws_session.client('s3')
+
+    # Configure CloudWatch logging
+    try:
+        cloudwatch_handler = watchtower.CloudWatchLogHandler(
+            log_group_name='/csye6225/webapp',
+            log_stream_name=datetime.now().strftime('%Y/%m/%d'),
+            boto3_session=aws_session
+        )
+        logger.addHandler(cloudwatch_handler)
+    except Exception as e:
+        logger.error(f"Failed to initialize CloudWatch: {e}")
+
 app.config['AWS_CLOUDWATCH_LOG_GROUP'] = os.getenv('AWS_CLOUDWATCH_LOG_GROUP', '/csye6225/webapp')
 app.config['AWS_CLOUDWATCH_LOG_STREAM'] = datetime.now().strftime('%Y/%m/%d')  # Fixed datetime
 
