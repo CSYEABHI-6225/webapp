@@ -1,13 +1,15 @@
 import os
+import sys
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock
 
-@pytest.fixture(autouse=True)
-def mock_aws():
-    with patch('boto3.client'), \
-         patch('boto3.Session'), \
-         patch('watchtower.CloudWatchLogHandler'):
-        yield
+# Create mock modules
+mock_watchtower = MagicMock()
+mock_boto3 = MagicMock()
+
+# Register mocks
+sys.modules['watchtower'] = mock_watchtower
+sys.modules['boto3'] = mock_boto3
 
 @pytest.fixture(autouse=True)
 def setup_test_env():

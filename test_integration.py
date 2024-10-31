@@ -1,13 +1,21 @@
 import os
+os.environ['TESTING'] = 'True'
+os.environ['AWS_REGION'] = 'us-east-1'
+
+from flask import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-# Mock AWS services before importing webapp
-with patch('boto3.client'), \
-     patch('boto3.Session'), \
-     patch('watchtower.CloudWatchLogHandler'):
+# Create mock objects
+mock_watchtower = MagicMock()
+mock_boto3 = MagicMock()
+
+# Apply mocks before importing webapp
+with patch.dict('sys.modules', {
+    'watchtower': mock_watchtower,
+    'boto3': mock_boto3
+}):
     from webapp import app, db, User
-import json
 
 @pytest.fixture
 def client():
