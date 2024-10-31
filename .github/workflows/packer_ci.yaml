@@ -29,6 +29,8 @@ jobs:
         echo "DB_PASSWORD=webapppassword" >> .env
         echo "DB_HOST=localhost" >> .env
         echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://webappuser:webapppassword@localhost/patient" >> .env
+        echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
+        echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
 
     - name: Initialize Packer
       run: packer init ./packer/main_ubuntu.pkr.hcl
