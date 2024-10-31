@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
-from datetime import datetime 
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -14,7 +14,6 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 import watchtower
-import logging.config
 import statsd
 import atexit
 
@@ -67,9 +66,7 @@ statsd_client = statsd.StatsClient('localhost', 8125)
 if not TESTING:
     try:
         # AWS Configuration
-        aws_session = boto3.Session(
-            region_name=app.config['AWS_REGION']
-        )
+        aws_session = boto3.Session(region_name=app.config['AWS_REGION'])
         
         # Initialize S3 client
         s3_client = aws_session.client('s3')
@@ -78,7 +75,7 @@ if not TESTING:
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
             log_group_name='csye6225',
             log_stream_name=datetime.now().strftime('%Y/%m/%d'),
-            boto3_session=aws_session
+            client=boto3.client('logs', region_name=app.config['AWS_REGION'])
         )
         logger.addHandler(cloudwatch_handler)
     except Exception as e:
@@ -250,6 +247,7 @@ def update_user():
         "account_created": user.account_created.isoformat(),
         "account_updated": user.account_updated.isoformat()
     }), 200
+
 
 @app.route('/v1/user/self', methods=['GET'])
 @auth.login_required
