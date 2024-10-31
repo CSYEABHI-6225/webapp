@@ -76,7 +76,7 @@ if not TESTING:
         
         # Configure CloudWatch logging
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
-            log_group_name='/csye6225/webapp',
+            log_group_name='csye6225',
             log_stream_name=datetime.now().strftime('%Y/%m/%d'),
             boto3_session=aws_session
         )
