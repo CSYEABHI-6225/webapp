@@ -19,6 +19,12 @@ class TestValidators(unittest.TestCase):
 class TestUserModel(unittest.TestCase):
     def setUp(self):
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'  # Set database URI here
+        
+        app.config['AWS_REGION'] = 'us-east-1'
+        app.config['AWS_ACCESS_KEY'] = 'test-key'
+        app.config['AWS_SECRET_KEY'] = 'test-secret'
+        app.config['AWS_BUCKET_NAME'] = 'test-bucket'
+        
         with app.app_context():
             db.create_all()
 
