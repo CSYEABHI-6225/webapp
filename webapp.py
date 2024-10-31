@@ -21,10 +21,11 @@ import atexit
 
 
 # Add this line to check if we're in test mode
+# Near the top of webapp.py, after imports
 TESTING = os.getenv('TESTING', 'False').lower() == 'true'
 
-# Replace your existing CloudWatch configuration with this:
-if not TESTING:  # Only initialize CloudWatch if not in testing mode
+# Modify your CloudWatch initialization
+if not TESTING:
     try:
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
             log_group_name=app.config['AWS_CLOUDWATCH_LOG_GROUP'],
