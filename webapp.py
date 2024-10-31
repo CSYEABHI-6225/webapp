@@ -13,23 +13,20 @@ import uuid
 import logging
 import boto3
 from botocore.exceptions import ClientError
+import watchtower
+import logging.config
+import statsd
+import atexit
 
-# Load environment variables
-load_dotenv()
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Check if we're in test mode
-TESTING = os.getenv('TESTING', 'False').lower() == 'true'
+# Create logs directory if it doesn't exist
+if not os.path.exists('logs'):
+    os.makedirs('logs')
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create handlers
-if not os.path.exists('logs'):
-    os.makedirs('logs')
 console_handler = logging.StreamHandler()
 file_handler = RotatingFileHandler('logs/webapp.log', maxBytes=10000, backupCount=3)
 
@@ -42,6 +39,13 @@ file_handler.setFormatter(log_format)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
+load_dotenv()
+
+# Check if we're in test mode
+TESTING = os.getenv('TESTING', 'False').lower() == 'true'
+
+app = Flask(__name__)
+
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -52,13 +56,41 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg'}
 app.config['AWS_REGION'] = os.getenv('AWS_REGION', 'us-east-1')
 app.config['AWS_BUCKET_NAME'] = os.getenv('AWS_BUCKET_NAME')
 
-# Initialize extensions
 db = SQLAlchemy(app)
+engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
 auth = HTTPBasicAuth()
+
+# Configure StatsD for metrics
+statsd_client = statsd.StatsClient('localhost', 8125)
+
+# Initialize AWS services only if not in testing mode
+if not TESTING:
+    try:
+        # AWS Configuration
+        aws_session = boto3.Session(
+            region_name=app.config['AWS_REGION']
+        )
+        
+        # Initialize S3 client
+        s3_client = aws_session.client('s3')
+        
+        # Configure CloudWatch logging
+        cloudwatch_handler = watchtower.CloudWatchLogHandler(
+            log_group_name='/csye6225/webapp',
+            log_stream_name=datetime.now().strftime('%Y/%m/%d'),
+            boto3_session=aws_session
+        )
+        logger.addHandler(cloudwatch_handler)
+    except Exception as e:
+        logger.error(f"Failed to initialize AWS services: {e}")
+else:
+    # Mock AWS services for testing
+    aws_session = None
+    s3_client = None
 
 class User(db.Model):
     __tablename__ = 'user'
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = db.Column(db.String(36), primary_key=True, default=str(uuid.uuid4()))
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
@@ -66,7 +98,7 @@ class User(db.Model):
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
     account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     images = db.relationship('Image', backref='user', lazy=True, cascade="all, delete-orphan")
-
+    
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
@@ -75,31 +107,11 @@ class User(db.Model):
 
 class Image(db.Model):
     __tablename__ = 'image'
-    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     file_name = db.Column(db.String(255), nullable=False)
+    id = db.Column(db.String(36), primary_key=True)
     url = db.Column(db.String(512), nullable=False)
     upload_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user_id = db.Column(db.String(36), db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
-
-# Initialize AWS services only if not in testing mode
-if not TESTING:
-    try:
-        aws_session = boto3.Session(region_name=app.config['AWS_REGION'])
-        s3_client = aws_session.client('s3')
-        
-        if 'watchtower' in globals():
-            import watchtower
-            cloudwatch_handler = watchtower.CloudWatchLogHandler(
-                log_group_name='/csye6225/webapp',
-                log_stream_name=datetime.now().strftime('%Y/%m/%d'),
-                boto3_session=aws_session
-            )
-            logger.addHandler(cloudwatch_handler)
-    except Exception as e:
-        logger.error(f"Failed to initialize AWS services: {e}")
-else:
-    aws_session = None
-    s3_client = None
 
 def validate_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
@@ -201,26 +213,6 @@ def create_user():
         db.session.rollback()
         return '', 500
 
-@app.route('/v1/user/self', methods=['GET'])
-@auth.login_required
-def get_user():
-    logger.info("GET /v1/user/self - Get user request received")
-    if check_queryparam():
-        return '', 404
-
-    if request.data:
-        return '', 400
-
-    user = auth.current_user()
-    return jsonify({
-        "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "account_created": user.account_created.isoformat(),
-        "account_updated": user.account_updated.isoformat()
-    }), 200
-
 @app.route('/v1/user/self', methods=['PUT'])
 @auth.login_required
 def update_user():
@@ -250,6 +242,26 @@ def update_user():
 
     db.session.commit()
 
+    return jsonify({
+        "id": user.id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "account_created": user.account_created.isoformat(),
+        "account_updated": user.account_updated.isoformat()
+    }), 200
+
+@app.route('/v1/user/self', methods=['GET'])
+@auth.login_required
+def get_user():
+    logger.info("GET /v1/user/self - Get user request received")
+    if check_queryparam():
+        return '', 404
+
+    if request.data:
+        return '', 400
+
+    user = auth.current_user()
     return jsonify({
         "id": user.id,
         "first_name": user.first_name,
@@ -310,6 +322,7 @@ def upload_profile_pic():
             )
 
             image = Image(
+                id=user_id,
                 file_name=original_filename,
                 url=f"{app.config['AWS_BUCKET_NAME']}/{s3_key}",
                 user_id=user_id
@@ -330,8 +343,6 @@ def upload_profile_pic():
         logger.error(f"Error uploading profile picture: {str(e)}")
         db.session.rollback()
         return '', 500
-
-    return '', 500
 
 @app.route('/v1/user/self/pic', methods=['GET'])
 @auth.login_required
@@ -399,6 +410,22 @@ def delete_profile_pic():
 def method_not_allowed(e):
     logger.warning(f"Method not allowed: {request.method} {request.path}")
     return '', 405
+
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+@app.before_request
+def log_request_info():
+    logger.info(f"Request Method: {request.method}")
+    logger.info(f"Request URL: {request.url}")
+    logger.info(f"Request Headers: {dict(request.headers)}")
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled Exception: {str(e)}")
+    return '', 500
 
 if __name__ == '__main__':
     with app.app_context():

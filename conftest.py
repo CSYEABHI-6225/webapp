@@ -1,21 +1,16 @@
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 @pytest.fixture(autouse=True)
 def mock_aws():
-    """Mock AWS services for all tests"""
-    mock_boto3 = MagicMock()
-    mock_watchtower = MagicMock()
-    
-    with patch.dict('sys.modules', {
-        'boto3': mock_boto3,
-        'watchtower': mock_watchtower
-    }):
+    with patch('boto3.client'), \
+         patch('boto3.Session'), \
+         patch('watchtower.CloudWatchLogHandler'):
         yield
 
 @pytest.fixture(autouse=True)
 def setup_test_env():
-    """Setup test environment variables"""
+    """Setup test environment variables."""
     os.environ['TESTING'] = 'True'
     os.environ['AWS_REGION'] = 'us-east-1'
