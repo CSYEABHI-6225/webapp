@@ -41,6 +41,7 @@ logger.addHandler(file_handler)
 load_dotenv()
 
 # Check if we're in test mode
+# Check if we're in test mode
 TESTING = os.getenv('TESTING', 'False').lower() == 'true'
 
 app = Flask(__name__)
@@ -65,25 +66,28 @@ statsd_client = statsd.StatsClient('localhost', 8125)
 # Initialize AWS services only if not in testing mode
 if not TESTING:
     try:
-        # AWS Configuration
-        aws_session = boto3.Session(region_name=app.config['AWS_REGION'])
-        
-        # Initialize S3 client
-        s3_client = aws_session.client('s3')
+        # Initialize AWS clients
+        logs_client = boto3.client('logs', region_name=app.config['AWS_REGION'])
+        s3_client = boto3.client('s3', region_name=app.config['AWS_REGION'])
         
         # Configure CloudWatch logging
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
-            log_group_name='csye6225',
-            log_stream_name='webapp',
-            client=boto3.client('logs', region_name=app.config['AWS_REGION'])
+            log_group='csye6225',
+            stream_name='webapp',
+            boto3_client=logs_client  # Use boto3_client instead of client
         )
+        
+        # Add handler to logger
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
         logger.addHandler(cloudwatch_handler)
+        
     except Exception as e:
         logger.error(f"Failed to initialize AWS services: {e}")
 else:
     # Mock AWS services for testing
-    aws_session = None
     s3_client = None
+    logger = logging.getLogger(__name__)
 
 class User(db.Model):
     __tablename__ = 'user'
