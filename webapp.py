@@ -74,7 +74,7 @@ if not TESTING:
         # Configure CloudWatch logging
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
             log_group_name='csye6225',
-            log_stream_name=datetime.now().strftime('%Y/%m/%d'),
+            log_stream_name='webapp',
             client=boto3.client('logs', region_name=app.config['AWS_REGION'])
         )
         logger.addHandler(cloudwatch_handler)
