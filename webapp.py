@@ -5,8 +5,9 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from logging.handlers import RotatingFileHandler
+from functools import wraps
 import re
 import os
 import uuid
@@ -15,7 +16,7 @@ import boto3
 from botocore.exceptions import ClientError
 import watchtower
 import statsd
-import atexit
+import time
 
 # Create logs directory if it doesn't exist
 if not os.path.exists('logs'):
@@ -38,9 +39,22 @@ file_handler.setFormatter(log_format)
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
+# Load environment variables
 load_dotenv()
 
-# Check if we're in test mode
+def verify_env_vars():
+    required_vars = [
+        'SQLALCHEMY_DATABASE_URI',
+        'AWS_REGION',
+        'AWS_BUCKET_NAME',
+        'HOSTNAME'
+    ]
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+verify_env_vars()
+
 # Check if we're in test mode
 TESTING = os.getenv('TESTING', 'False').lower() == 'true'
 
@@ -57,7 +71,6 @@ app.config['AWS_REGION'] = os.getenv('AWS_REGION', 'us-east-1')
 app.config['AWS_BUCKET_NAME'] = os.getenv('AWS_BUCKET_NAME')
 
 db = SQLAlchemy(app)
-engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
 auth = HTTPBasicAuth()
 
 # Configure StatsD for metrics
@@ -74,20 +87,25 @@ if not TESTING:
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
             log_group='csye6225',
             stream_name='webapp',
-            boto3_client=logs_client  # Use boto3_client instead of client
+            boto3_client=logs_client
         )
         
         # Add handler to logger
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.INFO)
         logger.addHandler(cloudwatch_handler)
         
     except Exception as e:
         logger.error(f"Failed to initialize AWS services: {e}")
 else:
-    # Mock AWS services for testing
     s3_client = None
-    logger = logging.getLogger(__name__)
+
+def verify_database():
+    try:
+        with app.app_context():
+            db.session.execute(text('SELECT 1'))
+            return True
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
+        return False
 
 class User(db.Model):
     __tablename__ = 'user'
@@ -430,6 +448,29 @@ def handle_exception(e):
     return '', 500
 
 if __name__ == '__main__':
+    # Wait for database to be ready
+    max_retries = 5
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        if verify_database():
+            logger.info("Database connection successful")
+            break
+        logger.info("Waiting for database connection...")
+        time.sleep(5)
+        retry_count += 1
+    
+    if retry_count >= max_retries:
+        logger.error("Failed to connect to database after maximum retries")
+        exit(1)
+    
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create database tables: {e}")
+            exit(1)
+    
+    # Start the application
     app.run(host=os.getenv('HOSTNAME'))
