@@ -100,16 +100,19 @@ else:
 
 def verify_database():
     try:
-        with app.app_context():
-            db.session.execute(text('SELECT 1'))
-            return True
+        with statsd_client.timer('database.connection.timing'):
+            with app.app_context():
+                db.session.execute(text('SELECT 1'))
+        statsd_client.incr('database.connection.success')
+        return True
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
+        statsd_client.incr('database.connection.error')
         return False
 
 class User(db.Model):
     __tablename__ = 'user'
-    id = db.Column(db.String(36), primary_key=True, default=str(uuid.uuid4()))
+    id = db.Column(db.String(36), primary_key=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
@@ -147,13 +150,17 @@ def allowed_file(filename):
 
 @auth.verify_password
 def verify_password(email, password):
+    statsd_client.incr('auth.attempt')
     if not email or not password:
+        statsd_client.incr('auth.invalid_input')
         return None
     if not validate_email(email):
         return None
     user = User.query.filter_by(email=email).first()
     if user and user.check_password(password):
+        statsd_client.incr('auth.success')
         return user
+    statsd_client.incr('auth.failure')
     return None
 
 def check_queryparam():
@@ -170,21 +177,37 @@ def check_db_connection():
 @app.route('/healthz', methods=['GET'])
 def health_check():
     logger.info("GET /healthz - Health check request received")
+    statsd_client.incr('endpoint.healthcheck.attempt')
     
-    if check_queryparam():
-        return '', 404
+    with statsd_client.timer('endpoint.healthcheck.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.healthcheck.error.query_param')
+            return '', 404
 
-    if request.data:
-        return '', 400
+        if request.data:
+            statsd_client.incr('endpoint.healthcheck.error.request_data')
+            return '', 400
 
-    if check_db_connection():
-        return '', 200
-    else:
-        return '', 503
+        try:
+            with statsd_client.timer('endpoint.healthcheck.db.timing'):
+                db_healthy = check_db_connection()
+            
+            if db_healthy:
+                statsd_client.incr('endpoint.healthcheck.success')
+                return '', 200
+            else:
+                statsd_client.incr('endpoint.healthcheck.error.db_connection')
+                return '', 503
+                
+        except Exception as e:
+            logger.error(f"Health check failed: {str(e)}")
+            statsd_client.incr('endpoint.healthcheck.error')
+            return '', 503
 
 @app.route('/v1/user', methods=['POST'])
 def create_user():
     logger.info("POST /v1/user - Create user request received")
+    statsd_client.incr('endpoint.user.create.attempt')
     try:
         if check_queryparam():
             return '', 404
@@ -210,6 +233,7 @@ def create_user():
             return '', 400
 
         new_user = User(
+            id=str(uuid.uuid4()),
             first_name=data['first_name'],
             last_name=data['last_name'],
             email=data['email']
@@ -218,7 +242,8 @@ def create_user():
 
         db.session.add(new_user)
         db.session.commit()
-
+        
+        statsd_client.incr('endpoint.user.create.success')
         return jsonify({
             "id": new_user.id,
             "first_name": new_user.first_name,
@@ -229,6 +254,7 @@ def create_user():
         }), 201
     except Exception as e:
         logger.error(f"Error creating user: {str(e)}")
+        statsd_client.incr('endpoint.user.create.error')
         db.session.rollback()
         return '', 500
 
@@ -236,113 +262,140 @@ def create_user():
 @auth.login_required
 def update_user():
     logger.info("PUT /v1/user/self - Update user request received")
-    if check_queryparam():
-        return '', 404
+    statsd_client.incr('endpoint.user.update.attempt')
+    
+    with statsd_client.timer('endpoint.user.update.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.user.update.error.query_param')
+            return '', 404
 
-    user = auth.current_user()
-    data = request.json
+        user = auth.current_user()
+        data = request.json
 
-    if not data:
-        return '', 400
+        if not data:
+            statsd_client.incr('endpoint.user.update.error.no_data')
+            return '', 400
 
-    required_fields = ['first_name', 'last_name', 'password']
-    if not all(field in data for field in required_fields):
-        return '', 400
+        required_fields = ['first_name', 'last_name', 'password']
+        if not all(field in data for field in required_fields):
+            statsd_client.incr('endpoint.user.update.error.missing_fields')
+            return '', 400
 
-    if not validate_name(data['first_name']) or not validate_name(data['last_name']):
-        return '', 400
+        if not validate_name(data['first_name']) or not validate_name(data['last_name']):
+            statsd_client.incr('endpoint.user.update.error.invalid_name')
+            return '', 400
 
-    if not validate_password(data['password']):
-        return '', 400
+        if not validate_password(data['password']):
+            statsd_client.incr('endpoint.user.update.error.invalid_password')
+            return '', 400
 
-    user.first_name = data['first_name']
-    user.last_name = data['last_name']
-    user.set_password(data['password'])
+        try:
+            user.first_name = data['first_name']
+            user.last_name = data['last_name']
+            user.set_password(data['password'])
 
-    db.session.commit()
+            with statsd_client.timer('endpoint.user.update.db.timing'):
+                db.session.commit()
+            
+            statsd_client.incr('endpoint.user.update.success')
+            return jsonify({
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "account_created": user.account_created.isoformat(),
+                "account_updated": user.account_updated.isoformat()
+            }), 200
 
-    return jsonify({
-        "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "account_created": user.account_created.isoformat(),
-        "account_updated": user.account_updated.isoformat()
-    }), 200
-
+        except Exception as e:
+            logger.error(f"Error updating user: {str(e)}")
+            statsd_client.incr('endpoint.user.update.error.db')
+            db.session.rollback()
+            return '', 500
 
 @app.route('/v1/user/self', methods=['GET'])
 @auth.login_required
 def get_user():
     logger.info("GET /v1/user/self - Get user request received")
-    if check_queryparam():
-        return '', 404
+    statsd_client.incr('endpoint.user.self.get.attempt')
+    
+    with statsd_client.timer('endpoint.user.self.get.timing'):
+        try:
+            if check_queryparam():
+                statsd_client.incr('endpoint.user.self.get.error.query_param')
+                return '', 404
 
-    if request.data:
-        return '', 400
+            if request.data:
+                statsd_client.incr('endpoint.user.self.get.error.request_data')
+                return '', 400
 
-    user = auth.current_user()
-    return jsonify({
-        "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "email": user.email,
-        "account_created": user.account_created.isoformat(),
-        "account_updated": user.account_updated.isoformat()
-    }), 200
+            user = auth.current_user()
+            statsd_client.incr('endpoint.user.self.get.success')
+            return jsonify({
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "account_created": user.account_created.isoformat(),
+                "account_updated": user.account_updated.isoformat()
+            }), 200
+        except Exception as e:
+            statsd_client.incr('endpoint.user.self.get.error')
+            return '',500
 
 @app.route('/v1/user/self/pic', methods=['POST'])
 @auth.login_required
 def upload_profile_pic():
     logger.info("POST /v1/user/self/pic - Upload profile picture request received")
+    statsd_client.incr('endpoint.user.pic.upload.attempt')
     
-    if check_queryparam():
-        return '', 404
+    with statsd_client.timer('endpoint.user.pic.upload.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.user.pic.upload.error.query_param')
+            return '', 404
 
-    if 'profilePic' not in request.files:
-        return '', 400
+        if 'profilePic' not in request.files:
+            statsd_client.incr('endpoint.user.pic.upload.error.no_file')
+            return '', 400
 
-    file = request.files['profilePic']
-    
-    if file.filename == '':
-        return '', 400
+        file = request.files['profilePic']
+        
+        if file.filename == '':
+            statsd_client.incr('endpoint.user.pic.upload.error.empty_filename')
+            return '', 400
 
-    if not allowed_file(file.filename):
-        return '', 400
+        if not allowed_file(file.filename):
+            statsd_client.incr('endpoint.user.pic.upload.error.invalid_extension')
+            return '', 400
 
-    try:
-        if not TESTING:
+        try:
+            # Check if user already has a profile picture
             existing_image = Image.query.filter_by(user_id=auth.current_user().id).first()
             if existing_image:
-                try:
-                    file_extension = existing_image.file_name.rsplit('.', 1)[1].lower()
-                    s3_client.delete_object(
-                        Bucket=app.config['AWS_BUCKET_NAME'],
-                        Key=f"{auth.current_user().id}/profile.{file_extension}"
-                    )
-                except ClientError as e:
-                    logger.error(f"Error deleting existing S3 object: {str(e)}")
-                
-                db.session.delete(existing_image)
-                db.session.commit()
+                statsd_client.incr('endpoint.user.pic.upload.error.already_exists')
+                logger.warning(f"User {auth.current_user().id} already has a profile picture")
+                return '', 400  # Return 400 if user already has an image
 
             user_id = auth.current_user().id
             original_filename = secure_filename(file.filename)
             file_extension = original_filename.rsplit('.', 1)[1].lower()
             s3_key = f"{user_id}/profile.{file_extension}"
 
-            s3_client.upload_fileobj(
-                file,
-                app.config['AWS_BUCKET_NAME'],
-                s3_key,
-                ExtraArgs={
-                    'ContentType': f'image/{file_extension}',
-                    'ACL': 'private'
-                }
-            )
+            if not TESTING:
+                with statsd_client.timer('endpoint.user.pic.upload.s3.timing'):
+                    s3_client.upload_fileobj(
+                        file,
+                        app.config['AWS_BUCKET_NAME'],
+                        s3_key,
+                        ExtraArgs={
+                            'ContentType': f'image/{file_extension}',
+                            'ACL': 'private'
+                        }
+                    )
+                statsd_client.incr('endpoint.user.pic.upload.s3.success')
 
             image = Image(
-                id=user_id,
+                id=str(uuid.uuid4()),  # Generate a new UUID for the image
                 file_name=original_filename,
                 url=f"{app.config['AWS_BUCKET_NAME']}/{s3_key}",
                 user_id=user_id
@@ -350,6 +403,7 @@ def upload_profile_pic():
             
             db.session.add(image)
             db.session.commit()
+            statsd_client.incr('endpoint.user.pic.upload.db.success')
 
             return jsonify({
                 "file_name": image.file_name,
@@ -359,76 +413,100 @@ def upload_profile_pic():
                 "user_id": image.user_id
             }), 201
 
-    except Exception as e:
-        logger.error(f"Error uploading profile picture: {str(e)}")
-        db.session.rollback()
-        return '', 500
+        except Exception as e:
+            logger.error(f"Error uploading profile picture: {str(e)}")
+            statsd_client.incr('endpoint.user.pic.upload.error')
+            db.session.rollback()
+            return '', 500
 
 @app.route('/v1/user/self/pic', methods=['GET'])
 @auth.login_required
 def get_profile_pic():
     logger.info("GET /v1/user/self/pic - Get profile picture request received")
+    statsd_client.incr('endpoint.user.pic.get.attempt')
     
-    if check_queryparam():
-        return '', 404
-
-    if request.data:
-        return '', 400
-
-    try:
-        image = Image.query.filter_by(user_id=auth.current_user().id).first()
-        if not image:
+    with statsd_client.timer('endpoint.user.pic.get.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.user.pic.get.error.query_param')
             return '', 404
 
-        return jsonify({
-            "file_name": image.file_name,
-            "id": image.id,
-            "url": image.url,
-            "upload_date": image.upload_date.strftime("%Y-%m-%d"),
-            "user_id": image.user_id
-        }), 200
+        if request.data:
+            statsd_client.incr('endpoint.user.pic.get.error.request_data')
+            return '', 400
 
-    except Exception as e:
-        logger.error(f"Error retrieving profile picture: {str(e)}")
-        return '', 500
+        try:
+            with statsd_client.timer('endpoint.user.pic.get.db.timing'):
+                image = Image.query.filter_by(user_id=auth.current_user().id).first()
+            
+            if not image:
+                statsd_client.incr('endpoint.user.pic.get.error.not_found')
+                return '', 404
+
+            statsd_client.incr('endpoint.user.pic.get.success')
+            return jsonify({
+                "file_name": image.file_name,
+                "id": image.id,
+                "url": image.url,
+                "upload_date": image.upload_date.strftime("%Y-%m-%d"),
+                "user_id": image.user_id
+            }), 200
+
+        except Exception as e:
+            logger.error(f"Error retrieving profile picture: {str(e)}")
+            statsd_client.incr('endpoint.user.pic.get.error')
+            return '', 500
 
 @app.route('/v1/user/self/pic', methods=['DELETE'])
 @auth.login_required
 def delete_profile_pic():
     logger.info("DELETE /v1/user/self/pic - Delete profile picture request received")
+    statsd_client.incr('endpoint.user.pic.delete.attempt')
     
-    if check_queryparam():
-        return '', 404
-
-    try:
-        image = Image.query.filter_by(user_id=auth.current_user().id).first()
-        if not image:
+    with statsd_client.timer('endpoint.user.pic.delete.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.user.pic.delete.error.query_param')
             return '', 404
 
-        if not TESTING:
-            try:
-                file_extension = image.file_name.rsplit('.', 1)[1].lower()
-                s3_key = f"{auth.current_user().id}/profile.{file_extension}"
-                s3_client.delete_object(
-                    Bucket=app.config['AWS_BUCKET_NAME'],
-                    Key=s3_key
-                )
-            except ClientError as e:
-                logger.error(f"Error deleting from S3: {str(e)}")
+        try:
+            with statsd_client.timer('endpoint.user.pic.delete.db.query.timing'):
+                image = Image.query.filter_by(user_id=auth.current_user().id).first()
+            
+            if not image:
+                statsd_client.incr('endpoint.user.pic.delete.error.not_found')
+                return '', 404
 
-        db.session.delete(image)
-        db.session.commit()
+            if not TESTING:
+                try:
+                    file_extension = image.file_name.rsplit('.', 1)[1].lower()
+                    s3_key = f"{auth.current_user().id}/profile.{file_extension}"
+                    
+                    with statsd_client.timer('endpoint.user.pic.delete.s3.timing'):
+                        s3_client.delete_object(
+                            Bucket=app.config['AWS_BUCKET_NAME'],
+                            Key=s3_key
+                        )
+                    statsd_client.incr('endpoint.user.pic.delete.s3.success')
+                except ClientError as e:
+                    logger.error(f"Error deleting from S3: {str(e)}")
+                    statsd_client.incr('endpoint.user.pic.delete.s3.error')
 
-        return '', 204
+            with statsd_client.timer('endpoint.user.pic.delete.db.delete.timing'):
+                db.session.delete(image)
+                db.session.commit()
+            
+            statsd_client.incr('endpoint.user.pic.delete.success')
+            return '', 204
 
-    except Exception as e:
-        logger.error(f"Error deleting profile picture: {str(e)}")
-        db.session.rollback()
-        return '', 500
+        except Exception as e:
+            logger.error(f"Error deleting profile picture: {str(e)}")
+            statsd_client.incr('endpoint.user.pic.delete.error')
+            db.session.rollback()
+            return '', 500
 
 @app.errorhandler(405)
 def method_not_allowed(e):
     logger.warning(f"Method not allowed: {request.method} {request.path}")
+    statsd_client.incr('error.method_not_allowed')
     return '', 405
 
 @app.after_request
@@ -446,31 +524,41 @@ def log_request_info():
 def handle_exception(e):
     logger.error(f"Unhandled Exception: {str(e)}")
     return '', 500
-
 if __name__ == '__main__':
     # Wait for database to be ready
     max_retries = 5
     retry_count = 0
     
-    while retry_count < max_retries:
-        if verify_database():
-            logger.info("Database connection successful")
-            break
-        logger.info("Waiting for database connection...")
-        time.sleep(5)
-        retry_count += 1
+    statsd_client.incr('application.startup.attempt')
     
-    if retry_count >= max_retries:
-        logger.error("Failed to connect to database after maximum retries")
-        exit(1)
+    with statsd_client.timer('application.database.connection.timing'):
+        while retry_count < max_retries:
+            if verify_database():
+                statsd_client.incr('application.database.connection.success')
+                logger.info("Database connection successful")
+                break
+            
+            statsd_client.incr('application.database.connection.retry')
+            logger.info("Waiting for database connection...")
+            time.sleep(5)
+            retry_count += 1
+        
+        if retry_count >= max_retries:
+            statsd_client.incr('application.database.connection.failure')
+            logger.error("Failed to connect to database after maximum retries")
+            exit(1)
     
     with app.app_context():
         try:
-            db.create_all()
+            with statsd_client.timer('application.database.tables.creation.timing'):
+                db.create_all()
+            statsd_client.incr('application.database.tables.creation.success')
             logger.info("Database tables created successfully")
         except Exception as e:
+            statsd_client.incr('application.database.tables.creation.error')
             logger.error(f"Failed to create database tables: {e}")
             exit(1)
     
     # Start the application
+    statsd_client.incr('application.startup.success')
     app.run(host=os.getenv('HOSTNAME'))
