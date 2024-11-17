@@ -144,7 +144,7 @@ jobs:
           aws ec2 create-launch-template-version \
           --launch-template-id ${{ secrets.LAUNCH_TEMPLATE_ID }} \
           --version-description "New version with updated AMI, security groups, and user data" \
-          --launch-template-data "{ \"ImageId\": \"${{ env.AMI_ID }}\", \"InstanceType\": \"${{ secrets.INSTANCE_TYPE }}\", \"SecurityGroupIds\": [\"${{ secrets.APP_SECURITY_GROUP_ID }}\"], \"IamInstanceProfile\": {\"Arn\": \"${{ secrets.EC2_ROLE_NAME }}\"}, \"UserData\": \"${{ env.ENCODED_USER_DATA }}\" }"
+          --launch-template-data "{ \"ImageId\": \"${{ env.AMI_ID }}\", \"InstanceType\": \"${{ secrets.INSTANCE_TYPE }}\", \"SecurityGroupIds\": [\"${{ secrets.APP_SECURITY_GROUP_ID }}\"], \"IamInstanceProfile\": {\"Arn\": \"${{ secrets.EC2_ROLE_NAME }}\"},\"KeyName\": \"${{ secrets.KEY_NAME }}\", \"UserData\": \"${{ env.ENCODED_USER_DATA }}\" }"
 
       - name: Get Latest Launch Template Version
         id: get_latest_version
