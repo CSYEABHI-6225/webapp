@@ -25,85 +25,172 @@ jobs:
           - 3306:3306
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-    
-    - name: Install MySQL Client
-      run: sudo apt-get install mysql-client -y
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-    - name: Install Python dependencies
-      run: |
-        python -m venv venv
-        source venv/bin/activate
-        pip install --upgrade pip
-        pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd
+      - name: Install MySQL Client
+        run: sudo apt-get install mysql-client -y
 
-    - name: Setup MySQL Database
-      run: |
-        mysql -h 127.0.0.1 -u root -prootpass -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.DB_NAME }};"
-        mysql -h 127.0.0.1 -u root -prootpass -e "CREATE USER IF NOT EXISTS '${{ secrets.DB_USER }}'@'%' IDENTIFIED BY '${{ secrets.DB_PASSWORD }}';"
-        mysql -h 127.0.0.1 -u root -prootpass -e "GRANT ALL PRIVILEGES ON ${{ secrets.DB_NAME }}.* TO '${{ secrets.DB_USER }}'@'%';"
-        mysql -h 127.0.0.1 -u root -prootpass -e "FLUSH PRIVILEGES;"
+      - name: Install Python dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd
 
-    - name: Create .env file at project root
-      run: |
-        echo "FLASK_APP=${{ secrets.FLASK_APP }}" > .env
-        echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
-        echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
-        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-        echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-        echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
-        echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
-        echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+      - name: Setup MySQL Database
+        run: |
+          mysql -h 127.0.0.1 -u root -prootpass -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.DB_NAME }};"
+          mysql -h 127.0.0.1 -u root -prootpass -e "CREATE USER IF NOT EXISTS '${{ secrets.DB_USER }}'@'%' IDENTIFIED BY '${{ secrets.DB_PASSWORD }}';"
+          mysql -h 127.0.0.1 -u root -prootpass -e "GRANT ALL PRIVILEGES ON ${{ secrets.DB_NAME }}.* TO '${{ secrets.DB_USER }}'@'%';"
+          mysql -h 127.0.0.1 -u root -prootpass -e "FLUSH PRIVILEGES;"
 
-    - name: Run Tests
-      run: |
-        source venv/bin/activate
-        python -m pytest
+      - name: Create .env file at project root
+        run: |
+          echo "FLASK_APP=${{ secrets.FLASK_APP }}" > .env
+          echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
+          echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
+          echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}" >> .env
 
-    - name: Setup AWS CLI
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-        aws-region: ${{ secrets.REGION }}  # Ensure this line is present and correct
+      - name: Run Tests
+        run: |
+          source venv/bin/activate
+          python -m pytest
 
-    - name: Install Packer
-      run: |
-        curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
-        sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
-        sudo apt-get update && sudo apt-get install packer
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.REGION }}
 
-    - name: Initialize Packer
-      run: packer init ./packer
+      - name: Install Packer
+        run: |
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+          sudo apt-get update && sudo apt-get install packer
 
-    - name: Build AMI using Packer
-      run: |
-        packer build -machine-readable \
+      - name: Initialize Packer
+        run: packer init ./packer
+
+      - name: Build AMI using Packer
+        run: |
+          packer build -machine-readable \
           -var "aws_access_key=${{ secrets.AWS_ACCESS_KEY }}" \
           -var "aws_secret_key=${{ secrets.AWS_SECRET_KEY }}" \
           -var "region=${{ secrets.REGION }}" \
           -var "instance_type=${{ secrets.INSTANCE_TYPE }}" \
           -var "ami_name=${{ secrets.AMI_NAME }}" \
           ./packer/main_ubuntu.pkr.hcl | tee build_output.txt
-      env:
-        PACKER_LOG: 1
+        env:
+          PACKER_LOG: 1
 
-    - name: Extract AMI ID
-      id: extract_ami
-      run: |
-        AMI_ID=$(grep 'artifact,0,id' build_output.txt | cut -d, -f6 | cut -d: -f2)
-        echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+      - name: Extract AMI ID
+        id: extract_ami
+        run: |
+          AMI_ID=$(grep 'artifact,0,id' build_output.txt | cut -d, -f6 | cut -d: -f2)
+          echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
 
-    - name: Share AMI with DEMO Account
-      run: |
-        aws ec2 modify-image-attribute --image-id ${{ env.AMI_ID }} --launch-permission "Add=[{UserId=${{ secrets.DEMO_ACCOUNT_ID }} }]"
-      env:
-        AWS_DEFAULT_REGION: ${{ secrets.REGION }}
+      - name: Share AMI with DEMO Account
+        run: |
+          aws ec2 modify-image-attribute --image-id ${{ env.AMI_ID }} --launch-permission "Add=[{UserId=${{ secrets.DEMO_ACCOUNT_ID }} }]"
+        env:
+          AWS_DEFAULT_REGION: ${{ secrets.REGION }}
+
+      - name: Setup AWS CLI for Demo
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.DEMO_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.DEMO_SECRET_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create and Encode User Data
+        run: |
+          cat <<EOT > user_data.sh
+          #!/bin/bash
+          if systemctl list-units --full -all | grep -Fq 'webapp.service'; then
+            sudo systemctl enable webapp.service
+            sudo systemctl daemon-reload
+            sudo systemctl restart webapp.service
+          fi
+          mkdir -p /opt/csye6225/webapp/logs
+          sudo touch /opt/csye6225/webapp/logs/webapp.log
+          sudo chmod 664 /opt/csye6225/webapp/logs/webapp.log
+          sudo chown ubuntu:ubuntu /opt/csye6225/webapp/logs/webapp.log
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+          -a fetch-config \
+          -m ec2 \
+          -c file:/opt/cloudwatch-config.json \
+          -s
+          EOT
+          base64 user_data.sh | tr -d '\n' > encoded_user_data.txt
+          USER_DATA=$(cat encoded_user_data.txt)
+          echo "ENCODED_USER_DATA=$USER_DATA" >> $GITHUB_ENV
+
+      - name: Create New Launch Template Version in Demo
+        run: |
+          aws ec2 create-launch-template-version \
+          --launch-template-id ${{ secrets.LAUNCH_TEMPLATE_ID }} \
+          --version-description "New version with updated AMI, security groups, and user data" \
+          --launch-template-data "{ \"ImageId\": \"${{ env.AMI_ID }}\", \"InstanceType\": \"${{ secrets.INSTANCE_TYPE }}\", \"SecurityGroupIds\": [\"${{ secrets.APP_SECURITY_GROUP_ID }}\"], \"IamInstanceProfile\": {\"Arn\": \"${{ secrets.EC2_ROLE_NAME }}\"}, \"UserData\": \"${{ env.ENCODED_USER_DATA }}\" }"
+
+      - name: Get Latest Launch Template Version
+        id: get_latest_version
+        run: |
+          LATEST_VERSION=$(aws ec2 describe-launch-templates \
+          --launch-template-ids ${{ secrets.LAUNCH_TEMPLATE_ID }} \
+          --query "LaunchTemplates[0].LatestVersionNumber" --output text)
+          echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
+
+      - name: Update Auto Scaling Group to Use New Launch Template Version (Demo)
+        run: |
+          aws autoscaling update-auto-scaling-group \
+          --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+          --launch-template "LaunchTemplateId=${{ secrets.LAUNCH_TEMPLATE_ID }},Version=${{ env.LATEST_VERSION }}" \
+          --desired-capacity 3
+
+      - name: Trigger Instance Refresh in Auto Scaling Group (Demo)
+        id: refresh_asg
+        run: |
+          REFRESH_ID=$(aws autoscaling start-instance-refresh \
+          --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+          --preferences '{"MinHealthyPercentage": 100}' \
+          --query 'InstanceRefreshId' --output text)
+          echo "REFRESH_ID=$REFRESH_ID" >> $GITHUB_ENV
+
+      - name: Wait for Instance Refresh Completion (Demo)
+        run: |
+          STATUS="InProgress"
+          while [ "$STATUS" == "InProgress" ]; do
+            sleep 60
+            STATUS=$(aws autoscaling describe-instance-refreshes \
+            --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+            --query "InstanceRefreshes[?InstanceRefreshId=='${{ env.REFRESH_ID }}'].Status" \
+            --output text)
+            echo "Current instance refresh status: $STATUS"
+          done
+          if [ "$STATUS" == "Successful" ]; then
+            echo "Instance refresh completed successfully."
+            exit 0
+          else
+            echo "Instance refresh failed with status: $STATUS"
+            exit 1
+          fi
+
+      - name: Ensure Desired Capacity After Refresh
+        run: |
+          aws autoscaling update-auto-scaling-group \
+          --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+          --desired-capacity 3

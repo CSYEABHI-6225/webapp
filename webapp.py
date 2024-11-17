@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, json, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
 from datetime import datetime
@@ -77,11 +77,21 @@ auth = HTTPBasicAuth()
 statsd_client = statsd.StatsClient('localhost', 8125)
 
 # Initialize AWS services only if not in testing mode
+
+sns_client = None
+s3_client = None
+logs_client = None
+SNS_TOPIC_ARN = None
+
 if not TESTING:
     try:
         # Initialize AWS clients
         logs_client = boto3.client('logs', region_name=app.config['AWS_REGION'])
         s3_client = boto3.client('s3', region_name=app.config['AWS_REGION'])
+        
+        # SNS Client initialization
+        sns_client = boto3.client('sns', region_name=app.config['AWS_REGION'])
+        SNS_TOPIC_ARN = os.getenv('SNS_TOPIC_ARN')
         
         # Configure CloudWatch logging
         cloudwatch_handler = watchtower.CloudWatchLogHandler(
@@ -97,6 +107,7 @@ if not TESTING:
         logger.error(f"Failed to initialize AWS services: {e}")
 else:
     s3_client = None
+    SNS_TOPIC_ARN = None
 
 def verify_database():
     try:
@@ -119,6 +130,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(255))
     account_created = db.Column(db.DateTime, default=datetime.utcnow)
     account_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_verified = db.Column(db.Boolean, default=False)
+    verification_token = db.Column(db.String(100))
+    token_expiry = db.Column(db.DateTime)
     images = db.relationship('Image', backref='user', lazy=True, cascade="all, delete-orphan")
     
     def set_password(self, password):
@@ -173,6 +187,16 @@ def check_db_connection():
     except Exception:
         logger.error("Database connection failed")
         return False
+
+def require_verification(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = auth.current_user()
+        if not user.is_verified:
+            return jsonify({'error': 'Email verification required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 
 @app.route('/healthz', methods=['GET'])
 def health_check():
@@ -236,14 +260,35 @@ def create_user():
             id=str(uuid.uuid4()),
             first_name=data['first_name'],
             last_name=data['last_name'],
-            email=data['email']
+            email=data['email'],
+            is_verified=False
         )
         new_user.set_password(data['password'])
-
         db.session.add(new_user)
         db.session.commit()
         
         statsd_client.incr('endpoint.user.create.success')
+        
+         # Publish to SNS if not in testing mode
+        if not TESTING  and sns_client and SNS_TOPIC_ARN:
+            try:
+                sns_message = {
+                    'user_id': new_user.id,
+                    'email': new_user.email,
+                    'first_name': new_user.first_name,
+                    'last_name': new_user.last_name
+                }
+                sns_client.publish(
+                    TopicArn=SNS_TOPIC_ARN,
+                    Message=json.dumps(sns_message)
+                )
+            except Exception as e:
+                logger.error(f"SNS publish error: {str(e)}")
+
+        # Update User model to include verification status
+        new_user.is_verified = False
+        db.session.commit()
+        
         return jsonify({
             "id": new_user.id,
             "first_name": new_user.first_name,
@@ -258,8 +303,10 @@ def create_user():
         db.session.rollback()
         return '', 500
 
+
 @app.route('/v1/user/self', methods=['PUT'])
 @auth.login_required
+@require_verification
 def update_user():
     logger.info("PUT /v1/user/self - Update user request received")
     statsd_client.incr('endpoint.user.update.attempt')
@@ -315,6 +362,7 @@ def update_user():
 
 @app.route('/v1/user/self', methods=['GET'])
 @auth.login_required
+@require_verification
 def get_user():
     logger.info("GET /v1/user/self - Get user request received")
     statsd_client.incr('endpoint.user.self.get.attempt')
@@ -345,6 +393,7 @@ def get_user():
 
 @app.route('/v1/user/self/pic', methods=['POST'])
 @auth.login_required
+@require_verification
 def upload_profile_pic():
     logger.info("POST /v1/user/self/pic - Upload profile picture request received")
     statsd_client.incr('endpoint.user.pic.upload.attempt')
@@ -421,6 +470,7 @@ def upload_profile_pic():
 
 @app.route('/v1/user/self/pic', methods=['GET'])
 @auth.login_required
+@require_verification
 def get_profile_pic():
     logger.info("GET /v1/user/self/pic - Get profile picture request received")
     statsd_client.incr('endpoint.user.pic.get.attempt')
@@ -458,6 +508,7 @@ def get_profile_pic():
 
 @app.route('/v1/user/self/pic', methods=['DELETE'])
 @auth.login_required
+@require_verification
 def delete_profile_pic():
     logger.info("DELETE /v1/user/self/pic - Delete profile picture request received")
     statsd_client.incr('endpoint.user.pic.delete.attempt')
