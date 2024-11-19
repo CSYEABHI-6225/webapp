@@ -45,26 +45,24 @@ jobs:
 
       - name: Setup MySQL Database
         run: |
-          mysql -h 127.0.0.1 -u root -prootpass -e "CREATE DATABASE IF NOT EXISTS \`${{ secrets.DB_NAME }}\`;"
+          mysql -h 127.0.0.1 -u root -prootpass -e "CREATE DATABASE IF NOT EXISTS ${{ secrets.DB_NAME }};"
           mysql -h 127.0.0.1 -u root -prootpass -e "CREATE USER IF NOT EXISTS '${{ secrets.DB_USER }}'@'%' IDENTIFIED BY '${{ secrets.DB_PASSWORD }}';"
-          mysql -h 127.0.0.1 -u root -prootpass -e "GRANT ALL PRIVILEGES ON \`${{ secrets.DB_NAME }}\`.* TO '${{ secrets.DB_USER }}'@'%';"
+          mysql -h 127.0.0.1 -u root -prootpass -e "GRANT ALL PRIVILEGES ON ${{ secrets.DB_NAME }}.* TO '${{ secrets.DB_USER }}'@'%';"
           mysql -h 127.0.0.1 -u root -prootpass -e "FLUSH PRIVILEGES;"
 
       - name: Create .env file at project root
         run: |
-          cat <<EOT > .env
-          FLASK_APP=${{ secrets.FLASK_APP }}
-          FLASK_ENV=${{ secrets.FLASK_ENV }}
-          HOSTNAME=${{ secrets.HOSTNAME }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}
-          AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
-          AWS_REGION=${{ secrets.AWS_REGION }}
-          SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}
-          EOT
+          echo "FLASK_APP=${{ secrets.FLASK_APP }}" > .env
+          echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
+          echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
+          echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}" >> .env
 
       - name: Run Tests
         run: |
@@ -135,18 +133,27 @@ jobs:
           AWS_REGION=${{ secrets.AWS_REGION }}
           SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}
           EOR
-          mkdir -p /opt/csye6225/webapp/logs
-          touch /opt/csye6225/webapp/logs/webapp.log
-          chmod 664 /opt/csye6225/webapp/logs/webapp.log
-          chown ubuntu:ubuntu /opt/csye6225/webapp/logs/webapp.log
+
           if systemctl list-units --full -all | grep -Fq 'webapp.service'; then
-            systemctl enable webapp.service
-            systemctl daemon-reload
-            systemctl restart webapp.service
+            sudo systemctl enable webapp.service
+            sudo systemctl daemon-reload
+            sudo systemctl restart webapp.service
           fi
+
+          mkdir -p /opt/csye6225/webapp/logs
+          sudo touch /opt/csye6225/webapp/logs/webapp.log
+          sudo chmod 664 /opt/csye6225/webapp/logs/webapp.log
+          sudo chown ubuntu:ubuntu /opt/csye6225/webapp/logs/webapp.log
+          sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+          -a fetch-config \
+          -m ec2 \
+          -c file:/opt/cloudwatch-config.json \
+          -s
           EOT
+
           base64 user_data.sh | tr -d '\n' > encoded_user_data.txt
-          echo "ENCODED_USER_DATA=$(cat encoded_user_data.txt)" >> $GITHUB_ENV
+          USER_DATA=$(cat encoded_user_data.txt)
+          echo "ENCODED_USER_DATA=$USER_DATA" >> $GITHUB_ENV
 
       - name: Create New Launch Template Version in Demo
         run: |
@@ -179,10 +186,12 @@ jobs:
           --query 'InstanceRefreshId' --output text)
           echo "REFRESH_ID=$REFRESH_ID" >> $GITHUB_ENV
 
-      - name: Wait for Instance Refresh Completion (Demo)
+      - name: Wait for Instance Refresh to Complete
         run: |
-          STATUS="InProgress"
-          while [ "$STATUS" == "InProgress" ]; do
-            sleep 60
-            STATUS=$(aws autoscaling describe-instance-refreshes \
-            --auto-scaling-group-name
+          until [[ "$(aws autoscaling describe-instance-refreshes \
+          --auto-scaling-group-name ${{ secrets.ASG_NAME }} \
+          --instance-refresh-ids ${{ env.REFRESH_ID }} \
+          --query 'InstanceRefreshes[0].Status' --output text)" == "Successful" ]]; do
+          sleep 30
+          echo "Instance refresh in progress..."
+          done
