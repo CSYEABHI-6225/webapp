@@ -21,16 +21,17 @@ jobs:
 
     - name: Create .env file at project root
       run: |
-        echo "FLASK_APP=webapp.py" > .env
-        echo "FLASK_ENV=development" >> .env
-        echo "HOSTNAME=0.0.0.0" >> .env
-        echo "DB_NAME=patient" >> .env
-        echo "DB_USER=webappuser" >> .env
-        echo "DB_PASSWORD=webapppassword" >> .env
-        echo "DB_HOST=localhost" >> .env
-        echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://webappuser:webapppassword@localhost/patient" >> .env
+        echo "FLASK_APP=${{ secrets.FLASK_APP }}" > .env
+        echo "FLASK_ENV=${{ secrets.FLASK_ENV }}" >> .env
+        echo "HOSTNAME=${{ secrets.HOSTNAME }}" >> .env
+        echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+        echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+        echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+        echo "SQLALCHEMY_DATABASE_URI=mysql+pymysql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}/${{ secrets.DB_NAME }}" >> .env
         echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
         echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+        echo "SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}" >> .env
 
     - name: Initialize Packer
       run: packer init ./packer/main_ubuntu.pkr.hcl
