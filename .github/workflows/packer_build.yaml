@@ -42,6 +42,7 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd
+          pip install Flask-Migrate
 
       - name: Setup MySQL Database
         run: |
@@ -63,6 +64,7 @@ jobs:
           echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           echo "SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}" >> .env
+          echo "SECRET_TOKEN=${{ secrets.SECRET_TOKEN }}" >> .env
 
       - name: Run Tests
         run: |
@@ -132,6 +134,7 @@ jobs:
           AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
           AWS_REGION=${{ secrets.AWS_REGION }}
           SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}
+          SECRET_TOKEN=${{ secrets.SECRET_TOKEN }}
           EOR
 
           if systemctl list-units --full -all | grep -Fq 'webapp.service'; then

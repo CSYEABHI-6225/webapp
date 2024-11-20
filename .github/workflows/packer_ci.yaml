@@ -32,6 +32,7 @@ jobs:
         echo "AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}" >> .env
         echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
         echo "SNS_TOPIC_ARN=${{ secrets.SNS_TOPIC_ARN }}" >> .env
+        echo "SECRET_TOKEN=${{ secrets.SECRET_TOKEN }}" >> .env
 
     - name: Initialize Packer
       run: packer init ./packer/main_ubuntu.pkr.hcl
