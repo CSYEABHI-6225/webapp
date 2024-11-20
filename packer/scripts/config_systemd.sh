@@ -12,7 +12,12 @@ User=ubuntu
 WorkingDirectory=/opt/csye6225/webapp
 Environment="PATH=/opt/csye6225/webapp/venv/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/opt/csye6225/webapp/.env
-ExecStart=/bin/bash -c 'source /opt/csye6225/webapp/venv/bin/activate && python3 webapp.py'
+ExecStart=/bin/bash -c 'source /opt/csye6225/webapp/venv/bin/activate && flask db init 
+&& flask db migrate -m "Added new column to User model"
+&& flask db upgrade
+ && python3 webapp.py'
+
+
 Restart=always
 
 [Install]
