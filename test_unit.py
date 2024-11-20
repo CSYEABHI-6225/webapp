@@ -4,6 +4,7 @@ import uuid
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
+from flask_migrate import Migrate
 
 # Set test environment variables
 os.environ['TESTING'] = 'True'

@@ -1,7 +1,8 @@
 from flask import Flask, json, request, jsonify
+from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from flask_httpauth import HTTPBasicAuth
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -72,6 +73,7 @@ app.config['AWS_BUCKET_NAME'] = os.getenv('AWS_BUCKET_NAME')
 
 db = SQLAlchemy(app)
 auth = HTTPBasicAuth()
+migrate = Migrate(app, db)
 
 # Configure StatsD for metrics
 statsd_client = statsd.StatsClient('localhost', 8125)
@@ -193,7 +195,7 @@ def require_verification(f):
     def decorated_function(*args, **kwargs):
         user = auth.current_user()
         if not user.is_verified:
-            return jsonify({'error': 'Email verification required'}), 403
+            return '', 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -269,6 +271,15 @@ def create_user():
         
         statsd_client.incr('endpoint.user.create.success')
         
+        secret_token = os.getenv('SECRET_TOKEN')  # Get the SECRET_TOKEN from .env
+        token_data = new_user.id + secret_token
+        
+        verification_token = token_data
+        
+        new_user.verification_token = verification_token
+        new_user.token_expiry = new_user.account_created + timedelta(minutes=2)
+        db.session.commit()
+        
          # Publish to SNS if not in testing mode
         if not TESTING  and sns_client and SNS_TOPIC_ARN:
             try:
@@ -303,6 +314,31 @@ def create_user():
         db.session.rollback()
         return '', 500
 
+@app.route('/v1/user/verify', methods=['GET'])
+def verify_user():
+    try:
+        token = request.args.get('token')
+        if not token:
+            return '', 400
+
+        user = User.query.filter_by(verification_token=token).first()
+        if not user:
+            return '', 400
+
+        if user.is_verified:
+            return '', 400
+
+        if datetime.utcnow() > user.token_expiry:
+            return '', 400
+
+        user.is_verified = True
+        user.verification_token = None  # Nullify the token after use
+        db.session.commit()
+
+        return '', 200
+    except Exception as e:
+        app.logger.error(f"Error verifying user: {str(e)}")
+        return '', 500
 
 @app.route('/v1/user/self', methods=['PUT'])
 @auth.login_required

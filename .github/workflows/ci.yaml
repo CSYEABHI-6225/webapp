@@ -40,6 +40,7 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dotenv Flask-SQLAlchemy flask-httpauth cryptography boto3 watchtower statsd pytest-mock
+          pip install Flask-Migrate
 
       - name: Create .env file
         run: |
@@ -54,6 +55,7 @@ jobs:
           SQLALCHEMY_DATABASE_URI=${{ secrets.SQLALCHEMY_DATABASE_URI }}
           AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
           AWS_REGION=us-east-1
+          SECRET_TOKEN=${{ secrets.SECRET_TOKEN }}
           TESTING=True
           EOF
 
