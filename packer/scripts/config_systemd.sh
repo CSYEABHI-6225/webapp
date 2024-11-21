@@ -16,10 +16,10 @@ EnvironmentFile=/opt/csye6225/webapp/.env
 
 ExecStart=/bin/bash -c '\
     source /opt/csye6225/webapp/venv/bin/activate && \
-    /opt/csye6225/webapp/venv/bin/flask db init || true && \
-    /opt/csye6225/webapp/venv/bin/flask db migrate -m "Added new column to User model" && \
-    /opt/csye6225/webapp/venv/bin/flask db upgrade && \
-    /opt/csye6225/webapp/venv/bin/python3 webapp.py'
+    flask db init || true && \
+    flask db migrate -m "Added new column to User model" && \
+    flask db upgrade && \
+    python3 webapp.py'
 
 Restart=always
 RestartSec=10

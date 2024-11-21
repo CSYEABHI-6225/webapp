@@ -8,6 +8,7 @@ sudo useradd -m -s /bin/bash -g csye6225 csye6225
 # Set up application directory
 sudo mkdir -p /opt/csye6225/webapp
 sudo chown -R csye6225:csye6225 /opt/csye6225
+sudo chmod -R 755 /opt/csye6225/webapp
 
 # Copy application files
 sudo cp -R /tmp/webapp/* /opt/csye6225/webapp/
@@ -17,6 +18,7 @@ cd /opt/csye6225/webapp/ && ls -al
 
 # Set correct permissions
 sudo chown -R csye6225:csye6225 /opt/csye6225/webapp
+sudo chmod -R 755 /opt/csye6225/webapp
 
 # Create a requirements.txt file if it doesn't exist
 if [ ! -f "/opt/csye6225/webapp/requirements.txt" ]; then
