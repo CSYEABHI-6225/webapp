@@ -3,7 +3,7 @@ set -e
 
 # Create the directory with correct permissions
 sudo mkdir -p /opt/csye6225/webapp
-sudo chown -R csye6225:csye6225 /opt/csye6225/webapp
+sudo chown -R ubuntu:ubuntu /opt/csye6225/webapp
 
 # Create a virtual environment
 python3 -m venv /opt/csye6225/webapp/venv
@@ -20,7 +20,7 @@ pip install Flask SQLAlchemy mysqlclient pytest pytest-flask pymysql python-dote
 cp -r /tmp/webapp/* /opt/csye6225/webapp/
 
 # Set correct permissions
-sudo chown -R csye6225:csye6225 /opt/csye6225/webapp
+sudo chown -R ubuntu:ubuntu /opt/csye6225/webapp
 
 # Deactivate the virtual environment
 deactivate
