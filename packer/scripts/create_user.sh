@@ -23,9 +23,9 @@ if [ ! -f "/opt/csye6225/webapp/requirements.txt" ]; then
     sudo -u csye6225 bash -c 'echo "Flask==2.0.1" > /opt/csye6225/webapp/requirements.txt'
     sudo -u csye6225 bash -c 'echo "SQLAlchemy==1.4.23" >> /opt/csye6225/webapp/requirements.txt'
     sudo -u csye6225 bash -c 'echo "mysqlclient==2.0.3" >> /opt/csye6225/webapp/requirements.txt'
+    sudo -u csye6225 bash -c 'echo "Flask-Migrate==4.0.7" >> /opt/csye6225/webapp/requirements.txt'
     # Add other required packages
 fi
-
 
 
 sudo chown csye6225:csye6225 /opt/csye6225/webapp/.env
