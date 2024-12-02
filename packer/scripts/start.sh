@@ -7,14 +7,15 @@ source venv/bin/activate
 
 # Handle database migrations
 if [ -d "migrations" ]; then
-    echo "Running database upgrade"
-    flask db upgrade
-else
-    echo "Initializing database"
-    flask db init
-    flask db migrate -m "Initial migration"
-    flask db upgrade
+    echo "Removing existing migrations"
+    rm -rf migrations
 fi
+
+# Initialize fresh migrations
+echo "Initializing fresh database migrations"
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
 
 # Start the Flask application
 python3 webapp.py
