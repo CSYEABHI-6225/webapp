@@ -231,7 +231,7 @@ def health_check():
             return '', 503
 
 @app.route('/cicd', methods=['GET'])
-def health_check():
+def health_check2():
     logger.info("GET /healthz - Health check request received")
     statsd_client.incr('endpoint.healthcheck.attempt')
     
