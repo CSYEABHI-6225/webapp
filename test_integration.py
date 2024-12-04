@@ -112,7 +112,7 @@ def test_health_check(client):
     response = client.get('/healthz')
     assert response.status_code == 200
 
-def test_health_check(client):
+def test_health_checks(client):
     response = client.get('/cicd')
     assert response.status_code == 200
 
