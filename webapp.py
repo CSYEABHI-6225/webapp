@@ -230,6 +230,36 @@ def health_check():
             statsd_client.incr('endpoint.healthcheck.error')
             return '', 503
 
+@app.route('/cicd', methods=['GET'])
+def health_check():
+    logger.info("GET /healthz - Health check request received")
+    statsd_client.incr('endpoint.healthcheck.attempt')
+    
+    with statsd_client.timer('endpoint.healthcheck.timing'):
+        if check_queryparam():
+            statsd_client.incr('endpoint.healthcheck.error.query_param')
+            return '', 404
+
+        if request.data:
+            statsd_client.incr('endpoint.healthcheck.error.request_data')
+            return '', 400
+
+        try:
+            with statsd_client.timer('endpoint.healthcheck.db.timing'):
+                db_healthy = check_db_connection()
+            
+            if db_healthy:
+                statsd_client.incr('endpoint.healthcheck.success')
+                return '', 200
+            else:
+                statsd_client.incr('endpoint.healthcheck.error.db_connection')
+                return '', 503
+                
+        except Exception as e:
+            logger.error(f"Health check failed: {str(e)}")
+            statsd_client.incr('endpoint.healthcheck.error')
+            return '', 503
+
 @app.route('/v1/user', methods=['POST'])
 def create_user():
     logger.info("POST /v1/user - Create user request received")
